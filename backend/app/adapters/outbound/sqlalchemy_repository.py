@@ -1,0 +1,92 @@
+"""SQLAlchemy adapter implementing the BookmarkRepository port."""
+
+import uuid
+
+from fastapi import Depends
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.adapters.outbound.database import get_db
+from app.adapters.outbound.orm import BookmarkRow
+from app.domain.exceptions import BookmarkNotFoundError
+from app.domain.models import Bookmark, BookmarkType
+from app.domain.ports import BookmarkRepository
+
+
+def _to_domain(row: BookmarkRow) -> Bookmark:
+    return Bookmark(
+        id=row.id,
+        name=row.name,
+        url=row.url,
+        description=row.description,
+        tags=list(row.tags),
+        type=row.type,
+        created_at=row.created_at,
+        deleted_at=row.deleted_at,
+    )
+
+
+def _copy_into_row(bookmark: Bookmark, row: BookmarkRow) -> None:
+    row.id = bookmark.id
+    row.name = bookmark.name
+    row.url = bookmark.url
+    row.description = bookmark.description
+    row.tags = bookmark.tags
+    row.type = bookmark.type
+    row.created_at = bookmark.created_at
+    row.deleted_at = bookmark.deleted_at
+
+
+class SqlAlchemyBookmarkRepository:
+    """Outbound adapter: implements BookmarkRepository against SQLite via SQLAlchemy asyncio."""
+
+    def __init__(self, db: AsyncSession) -> None:
+        self._db = db
+
+    async def list(
+        self,
+        *,
+        name: str | None = None,
+        type: BookmarkType | None = None,
+        tag: str | None = None,
+    ) -> list[Bookmark]:
+        stmt = select(BookmarkRow).where(BookmarkRow.deleted_at.is_(None))
+        if name is not None:
+            stmt = stmt.where(BookmarkRow.name.ilike(f"%{name}%"))
+        if type is not None:
+            stmt = stmt.where(BookmarkRow.type == type)
+        if tag is not None:
+            tag_value = func.json_each(BookmarkRow.tags).table_valued("value")
+            stmt = stmt.where(
+                select(1).select_from(tag_value).where(tag_value.c.value == tag).exists()
+            )
+        rows = (await self._db.execute(stmt)).scalars().all()
+        return [_to_domain(row) for row in rows]
+
+    async def get(self, bookmark_id: uuid.UUID) -> Bookmark | None:
+        stmt = select(BookmarkRow).where(
+            BookmarkRow.id == bookmark_id, BookmarkRow.deleted_at.is_(None)
+        )
+        row = (await self._db.execute(stmt)).scalars().first()
+        return _to_domain(row) if row is not None else None
+
+    async def add(self, bookmark: Bookmark) -> Bookmark:
+        row = BookmarkRow()
+        _copy_into_row(bookmark, row)
+        self._db.add(row)
+        await self._db.commit()
+        await self._db.refresh(row)
+        return _to_domain(row)
+
+    async def save(self, bookmark: Bookmark) -> Bookmark:
+        row = await self._db.get(BookmarkRow, bookmark.id)
+        if row is None:
+            raise BookmarkNotFoundError(bookmark.id)
+        _copy_into_row(bookmark, row)
+        await self._db.commit()
+        await self._db.refresh(row)
+        return _to_domain(row)
+
+
+def get_repository(db: AsyncSession = Depends(get_db)) -> BookmarkRepository:
+    return SqlAlchemyBookmarkRepository(db)

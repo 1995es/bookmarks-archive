@@ -1,0 +1,46 @@
+[project]
+name = "bookmarks-archive-backend"
+version = "0.1.0"
+description = "Backend for the bookmarks manager app"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "aiosqlite>=0.20.0",
+    "pydantic>=2.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+    "ruff>=0.7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+# Every layer is async now; auto mode saves an @pytest.mark.asyncio on each test.
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    "B008",  # FastAPI's `Depends(...)` in argument defaults is the idiomatic pattern.
+    "UP042", # BookmarkType(str, Enum) is specified explicitly (not StrEnum) by the API contract.
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

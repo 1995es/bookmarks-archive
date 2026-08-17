@@ -69,3 +69,78 @@ async def test_follows_redirects() -> None:
         content = await fetcher.fetch("https://example.com/start")
 
     assert "final destination" in content
+
+
+async def test_drops_script_and_style_content() -> None:
+    html = (
+        "<html><head><style>body { color: red; }</style></head>"
+        "<body><script>alert('hi')</script><p>Real content</p></body></html>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, html=html)
+
+    async with _fetcher(handler) as fetcher:
+        content = await fetcher.fetch("https://example.com")
+
+    assert "Real content" in content
+    assert "color: red" not in content
+    assert "alert" not in content
+
+
+async def test_drops_nav_header_footer_content() -> None:
+    html = (
+        "<html><body>"
+        "<nav>Home About Contact</nav>"
+        "<header>Site Header</header>"
+        "<p>Real content</p>"
+        "<footer>Copyright 2026</footer>"
+        "</body></html>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, html=html)
+
+    async with _fetcher(handler) as fetcher:
+        content = await fetcher.fetch("https://example.com")
+
+    assert "Real content" in content
+    assert "Home About Contact" not in content
+    assert "Site Header" not in content
+    assert "Copyright 2026" not in content
+
+
+async def test_prefers_main_content_over_surrounding_chrome() -> None:
+    html = (
+        "<html><body>"
+        "<div>Sidebar chrome that isn't tagged as boilerplate</div>"
+        "<main><p>The actual article text</p></main>"
+        "</body></html>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, html=html)
+
+    async with _fetcher(handler) as fetcher:
+        content = await fetcher.fetch("https://example.com")
+
+    assert "The actual article text" in content
+    assert "Sidebar chrome" not in content
+
+
+async def test_surfaces_title_and_meta_description() -> None:
+    html = (
+        "<html><head>"
+        "<title>Example Page</title>"
+        '<meta name="description" content="A page about examples.">'
+        "</head><body><p>Body text</p></body></html>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, html=html)
+
+    async with _fetcher(handler) as fetcher:
+        content = await fetcher.fetch("https://example.com")
+
+    assert content.startswith("Title: Example Page\nDescription: A page about examples.\n")
+    assert "Body text" in content

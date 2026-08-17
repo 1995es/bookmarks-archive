@@ -10,49 +10,14 @@ import pytest
 
 from app.application import bookmark_service
 from app.domain.models import Bookmark, BookmarkType
+from tests.fakes import FakeBookmarkRepository
 from tests.repository_contract import (  # noqa: F401 - collected as tests in this module
     test_add_then_get_returns_the_bookmark,
     test_get_returns_none_for_soft_deleted,
     test_get_returns_none_for_unknown_id,
     test_list_excludes_soft_deleted,
+    test_save_raises_not_found_when_deleted_concurrently,
 )
-
-
-class FakeBookmarkRepository:
-    """In-memory BookmarkRepository implementation for tests."""
-
-    def __init__(self) -> None:
-        self._rows: dict[uuid.UUID, Bookmark] = {}
-
-    async def list(
-        self,
-        *,
-        name: str | None = None,
-        type: BookmarkType | None = None,
-        tag: str | None = None,
-    ) -> list[Bookmark]:
-        rows = [b for b in self._rows.values() if not b.is_deleted]
-        if name is not None:
-            rows = [b for b in rows if name.lower() in b.name.lower()]
-        if type is not None:
-            rows = [b for b in rows if b.type == type]
-        if tag is not None:
-            rows = [b for b in rows if tag in b.tags]
-        return rows
-
-    async def get(self, bookmark_id: uuid.UUID) -> Bookmark | None:
-        bookmark = self._rows.get(bookmark_id)
-        if bookmark is None or bookmark.is_deleted:
-            return None
-        return bookmark
-
-    async def add(self, bookmark: Bookmark) -> Bookmark:
-        self._rows[bookmark.id] = bookmark
-        return bookmark
-
-    async def save(self, bookmark: Bookmark) -> Bookmark:
-        self._rows[bookmark.id] = bookmark
-        return bookmark
 
 
 @pytest.fixture()

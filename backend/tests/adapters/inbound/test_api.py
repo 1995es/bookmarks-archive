@@ -18,13 +18,22 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.adapters.inbound.background import EnrichmentRunner, get_enrichment_runner
 from app.adapters.outbound.database import Base, get_db
 from app.adapters.outbound.orm import BookmarkRow
+from app.adapters.outbound.sqlalchemy_repository import SqlAlchemyBookmarkRepository
+from app.application.enrich_bookmark import enrich_bookmark
+from app.domain.models import ExtractedData
+from app.domain.ports import BookmarkEnricherService, ContentFetcher
 from app.main import app
 
 
+async def _noop_runner(bookmark_id: uuid.UUID) -> None:
+    pass
+
+
 @pytest.fixture()
-async def db_session() -> AsyncGenerator[AsyncSession]:
+async def db_engine() -> AsyncGenerator[tuple[async_sessionmaker[AsyncSession], str]]:
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     engine = create_async_engine(
@@ -33,12 +42,27 @@ async def db_session() -> AsyncGenerator[AsyncSession]:
     TestingSessionLocal = async_sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    try:
+        yield TestingSessionLocal, path
+    finally:
+        await engine.dispose()
+        os.remove(path)
+
+
+@pytest.fixture()
+async def db_session(
+    db_engine: tuple[async_sessionmaker[AsyncSession], str],
+) -> AsyncGenerator[AsyncSession]:
+    TestingSessionLocal, _ = db_engine
 
     async def override_get_db() -> AsyncGenerator[AsyncSession]:
         async with TestingSessionLocal() as db:
             yield db
 
     app.dependency_overrides[get_db] = override_get_db
+    # Default to a no-op enrichment runner so CRUD tests never hit real HTTP/LLM
+    # adapters; tests that care about the runner override it again themselves.
+    app.dependency_overrides[get_enrichment_runner] = lambda: _noop_runner
 
     session = TestingSessionLocal()
     try:
@@ -46,16 +70,36 @@ async def db_session() -> AsyncGenerator[AsyncSession]:
     finally:
         await session.close()
         app.dependency_overrides.clear()
-        await engine.dispose()
-        os.remove(path)
 
 
 @pytest.fixture()
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient]:
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as async_client:
+    # raise_app_exceptions=False mirrors real deployments: BackgroundTasks run
+    # after the HTTP response bytes are already sent, so a background failure
+    # can no longer affect a response the client already received. Without this,
+    # ASGITransport re-raises even post-completion background exceptions, which
+    # a real server socket has no way to do.
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="http://test") as async_client:
         yield async_client
+
+
+def make_real_enrichment_runner(
+    session_factory: async_sessionmaker[AsyncSession],
+    fetcher: ContentFetcher,
+    enricher: BookmarkEnricherService,
+) -> EnrichmentRunner:
+    """Builds a runner backed by the test's real (temp-file) database but fake
+    fetcher/enricher — the shape production's run_enrichment has, minus the
+    real HTTP/LLM adapters, so it can prove the background task's own session
+    writes where the request's session reads."""
+
+    async def runner(bookmark_id: uuid.UUID) -> None:
+        async with session_factory() as db:
+            repo = SqlAlchemyBookmarkRepository(db)
+            await enrich_bookmark(bookmark_id, repo=repo, fetcher=fetcher, enricher=enricher)
+
+    return runner
 
 
 def make_payload(**overrides: object) -> dict:
@@ -233,3 +277,107 @@ async def test_tags_omitted_defaults_to_empty_list(client: AsyncClient) -> None:
     body = resp.json()
     assert body["tags"] == []
     assert body["tags"] is not None
+
+
+# --- Background enrichment ---
+
+
+class RunnerSpy:
+    def __init__(self) -> None:
+        self.calls: list[uuid.UUID] = []
+
+    async def __call__(self, bookmark_id: uuid.UUID) -> None:
+        self.calls.append(bookmark_id)
+
+
+class FailingRunnerSpy:
+    async def __call__(self, bookmark_id: uuid.UUID) -> None:
+        raise RuntimeError("enrichment blew up")
+
+
+async def test_create_schedules_enrichment_task(client: AsyncClient) -> None:
+    spy = RunnerSpy()
+    app.dependency_overrides[get_enrichment_runner] = lambda: spy
+
+    resp = await client.post("/bookmarks", json=make_payload())
+
+    assert resp.status_code == 201
+    assert len(spy.calls) == 1
+
+
+async def test_enrichment_receives_the_created_bookmark_id(client: AsyncClient) -> None:
+    spy = RunnerSpy()
+    app.dependency_overrides[get_enrichment_runner] = lambda: spy
+
+    resp = await client.post("/bookmarks", json=make_payload())
+
+    body = resp.json()
+    assert spy.calls == [uuid.UUID(body["id"])]
+
+
+async def test_create_returns_201_before_enrichment_completes(
+    client: AsyncClient, db_engine: tuple[async_sessionmaker[AsyncSession], str]
+) -> None:
+    session_factory, _ = db_engine
+    fetcher = _FixedContentFetcher()
+    enricher = _FixedEnricherService()
+    app.dependency_overrides[get_enrichment_runner] = lambda: make_real_enrichment_runner(
+        session_factory, fetcher, enricher
+    )
+
+    resp = await client.post("/bookmarks", json=make_payload(description="original"))
+
+    body = resp.json()
+    assert body["description"] == "original"
+
+
+async def test_failing_enrichment_does_not_affect_response(client: AsyncClient) -> None:
+    app.dependency_overrides[get_enrichment_runner] = lambda: FailingRunnerSpy()
+
+    resp = await client.post("/bookmarks", json=make_payload())
+
+    assert resp.status_code == 201
+
+
+async def test_other_endpoints_do_not_schedule_enrichment(client: AsyncClient) -> None:
+    spy = RunnerSpy()
+    created = (await client.post("/bookmarks", json=make_payload())).json()
+    app.dependency_overrides[get_enrichment_runner] = lambda: spy
+
+    await client.put(f"/bookmarks/{created['id']}", json=make_payload(name="Updated"))
+    await client.delete(f"/bookmarks/{created['id']}")
+
+    assert spy.calls == []
+
+
+# --- Background enrichment: end-to-end ---
+
+
+class _FixedContentFetcher:
+    async def fetch(self, url: str) -> str:
+        return "fetched content"
+
+
+class _FixedEnricherService:
+    async def extract_data(self, *, url: str, content: str) -> ExtractedData:
+        return ExtractedData(description="generated summary", tags=["python"])
+
+
+async def test_enrichment_writes_are_visible_through_the_api(
+    client: AsyncClient, db_engine: tuple[async_sessionmaker[AsyncSession], str]
+) -> None:
+    """Proves the background task's own session commits where the request's
+    session (and later requests) read — the one thing fakes alone can't show."""
+    session_factory, _ = db_engine
+    fetcher = _FixedContentFetcher()
+    enricher = _FixedEnricherService()
+    app.dependency_overrides[get_enrichment_runner] = lambda: make_real_enrichment_runner(
+        session_factory, fetcher, enricher
+    )
+
+    created = (await client.post("/bookmarks", json=make_payload(description="original"))).json()
+
+    resp = await client.get(f"/bookmarks/{created['id']}")
+    body = resp.json()
+    assert "generated summary" in body["description"]
+    assert "python" in body["tags"]

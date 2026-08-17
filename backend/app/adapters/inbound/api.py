@@ -2,8 +2,9 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
+from app.adapters.inbound.background import EnrichmentRunner, get_enrichment_runner
 from app.adapters.inbound.schemas import BookmarkCreate, BookmarkRead, BookmarkUpdate
 from app.adapters.outbound.sqlalchemy_repository import get_repository
 from app.application import bookmark_service
@@ -25,9 +26,14 @@ async def list_bookmarks(
 
 @router.post("/bookmarks", response_model=BookmarkRead, status_code=201)
 async def create_bookmark(
-    bookmark: BookmarkCreate, repo: BookmarkRepository = Depends(get_repository)
+    bookmark: BookmarkCreate,
+    background_tasks: BackgroundTasks,
+    repo: BookmarkRepository = Depends(get_repository),
+    enrich: EnrichmentRunner = Depends(get_enrichment_runner),
 ) -> BookmarkRead:
-    return await bookmark_service.create_bookmark(repo, **bookmark.model_dump())
+    created = await bookmark_service.create_bookmark(repo, **bookmark.model_dump())
+    background_tasks.add_task(enrich, created.id)
+    return created
 
 
 @router.get("/bookmarks/{bookmark_id}", response_model=BookmarkRead)

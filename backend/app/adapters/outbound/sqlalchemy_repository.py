@@ -37,7 +37,7 @@ def _copy_into_row(bookmark: Bookmark, row: BookmarkRow) -> None:
     row.deleted_at = bookmark.deleted_at
 
 
-class SqlAlchemyBookmarkRepository:
+class SqlAlchemyBookmarkRepository(BookmarkRepository):
     """Outbound adapter: implements BookmarkRepository against SQLite via SQLAlchemy asyncio."""
 
     def __init__(self, db: AsyncSession) -> None:
@@ -81,6 +81,11 @@ class SqlAlchemyBookmarkRepository:
     async def save(self, bookmark: Bookmark) -> Bookmark:
         row = await self._db.get(BookmarkRow, bookmark.id)
         if row is None:
+            raise BookmarkNotFoundError(bookmark.id)
+        if row.deleted_at is not None and not bookmark.is_deleted:
+            # Soft-deleted concurrently since this bookmark was read (e.g. a
+            # background enrichment racing a DELETE): treat like a missing row
+            # rather than silently resurrecting it.
             raise BookmarkNotFoundError(bookmark.id)
         _copy_into_row(bookmark, row)
         await self._db.commit()

@@ -6,16 +6,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
-from app.domain.models import BookmarkType
-
-_MAX_TAGS = 50
-_MAX_TAG_LENGTH = 50
+from app.domain.models import _MAX_DESCRIPTION_LENGTH, _MAX_TAG_LENGTH, _MAX_TAGS, BookmarkType
 
 
 class BookmarkBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     url: str = Field(min_length=1, max_length=2000)
-    description: str | None = Field(default=None, max_length=2000)
+    description: str | None = Field(default=None, max_length=_MAX_DESCRIPTION_LENGTH)
     tags: list[str] = Field(default_factory=list, max_length=_MAX_TAGS)
     type: BookmarkType
 

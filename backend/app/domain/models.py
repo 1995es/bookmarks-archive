@@ -15,6 +15,19 @@ class BookmarkType(str, Enum):
     SITE = "site"
 
 
+_MAX_TAGS = 50
+_MAX_TAG_LENGTH = 50
+_MAX_DESCRIPTION_LENGTH = 2000
+
+
+@dataclass(frozen=True)
+class ExtractedData:
+    """Description and tags derived from a bookmark's content, merged in via Bookmark.enrich()."""
+
+    description: str
+    tags: list[str]
+
+
 @dataclass
 class Bookmark:
     id: UUID
@@ -60,6 +73,30 @@ class Bookmark:
         self.description = description
         self.tags = list(tags)
         self.type = type
+        self.validate()
+
+    def enrich(self, data: ExtractedData) -> None:
+        """Merge generated description/tags onto what the user already provided.
+
+        Description is appended (not replaced) so a user-written description
+        survives; tags are appended without duplicating existing ones. Both are
+        bounded to the same limits schemas.py enforces at the wire boundary —
+        the LLM path never goes through Pydantic, so an oversized or empty tag,
+        or an over-length description, would otherwise persist and then fail
+        BookmarkRead validation on every subsequent read.
+        """
+        if self.description:
+            merged = f"{self.description}\n\n{data.description}"
+        else:
+            merged = data.description
+        self.description = merged[:_MAX_DESCRIPTION_LENGTH]
+
+        for tag in data.tags:
+            tag = tag[:_MAX_TAG_LENGTH]
+            if tag and tag not in self.tags:
+                self.tags.append(tag)
+        self.tags = self.tags[:_MAX_TAGS]
+
         self.validate()
 
     def validate(self) -> None:

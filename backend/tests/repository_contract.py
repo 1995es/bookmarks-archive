@@ -11,6 +11,9 @@ rule being duplicated and unguarded per adapter.
 
 import uuid
 
+import pytest
+
+from app.domain.exceptions import BookmarkNotFoundError
 from app.domain.models import Bookmark, BookmarkType
 
 
@@ -54,3 +57,19 @@ async def test_get_returns_none_for_soft_deleted(repo) -> None:
     await repo.save(added)
 
     assert await repo.get(added.id) is None
+
+
+async def test_save_raises_not_found_when_deleted_concurrently(repo) -> None:
+    """A save() based on a pre-delete read must not resurrect a soft-deleted row.
+
+    `stale` stands in for a bookmark instance read before a concurrent delete
+    (e.g. by a background task) — same id, but built fresh so it doesn't alias
+    `added` the way a second repo.get() would on an in-memory fake.
+    """
+    added = await repo.add(make_bookmark())
+    stale = make_bookmark(id=added.id)
+    added.delete()
+    await repo.save(added)
+
+    with pytest.raises(BookmarkNotFoundError):
+        await repo.save(stale)

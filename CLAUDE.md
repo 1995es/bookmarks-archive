@@ -10,6 +10,13 @@ Two sub-projects have their own guidance — read the relevant one before changi
 A self-hosted bookmarks manager: FastAPI + SQLite backend, React + Vite + TypeScript frontend,
 Docker Compose for dev and prod. Single `bookmarks` table, soft deletes, no auth.
 
+`POST /bookmarks` schedules asynchronous enrichment (a FastAPI `BackgroundTask`) that fetches the
+bookmark's URL and derives a description/tags for it via an LLM, appending them to whatever the
+user provided. This runs after the response is returned, so the created bookmark is enriched a few
+seconds later, not immediately. The LLM call needs `ANTHROPIC_API_KEY` set in the backend's
+environment in prod (`docker-compose.prod.yml` requires it); see `backend/CLAUDE.md` for the
+ports/adapters involved.
+
 ## Running both services
 
 ```bash

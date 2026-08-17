@@ -23,6 +23,7 @@ from tests.repository_contract import (  # noqa: F401 - collected as tests in th
     test_get_returns_none_for_soft_deleted,
     test_get_returns_none_for_unknown_id,
     test_list_excludes_soft_deleted,
+    test_save_raises_not_found_when_deleted_concurrently,
 )
 
 

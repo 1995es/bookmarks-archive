@@ -4,6 +4,13 @@ A small self-hosted bookmarks manager: list, add, edit, delete, and filter bookm
 type. FastAPI backend, React + Vite + TypeScript frontend, SQLite storage, Docker Compose for
 both dev and prod.
 
+After you add a bookmark it shows up immediately with whatever you typed. The backend then kicks
+off a background task that fetches the URL and is meant to ask an LLM to summarize it, appending
+the result to your description and merging in any suggested tags you didn't already have — but the
+LLM step itself is not implemented yet (see `backend/app/adapters/outbound/llm_bookmark_enricher.py`),
+so today that background task always fails harmlessly and the bookmark just stays as you entered
+it. Once implemented, it'll need an `ANTHROPIC_API_KEY` set for the backend in prod.
+
 ## Stack
 
 - **Backend**: Python 3.14, FastAPI, SQLAlchemy 2 asyncio (aiosqlite), Pydantic v2, `uv` for
@@ -129,18 +136,23 @@ nothing in this project:
 ```
 backend/app/
 ├── domain/
-│   ├── models.py            # Bookmark (dataclass), BookmarkType — no framework imports
-│   └── ports.py              # BookmarkRepository (Protocol) — the interface adapters implement
+│   ├── models.py            # Bookmark (dataclass), BookmarkType, ExtractedData — no framework imports
+│   ├── ports.py              # BookmarkRepository, ContentFetcher, BookmarkEnricherService (Protocols)
+│   └── exceptions.py         # ContentFetchError, EnrichmentError, BookmarkNotFoundError, BookmarkInvalidError
 ├── application/
-│   └── bookmark_service.py   # use cases: list/get/create/update/delete, depend only on the port
+│   ├── bookmark_service.py   # use cases: list/get/create/update/delete, depend only on the port
+│   └── enrich_bookmark.py    # fetches a bookmark's URL, derives description/tags, persists the merge
 ├── adapters/
 │   ├── inbound/
 │   │   ├── api.py             # FastAPI routes — translate HTTP into use-case calls
-│   │   └── schemas.py          # Pydantic request/response DTOs
+│   │   ├── schemas.py          # Pydantic request/response DTOs
+│   │   └── background.py       # BackgroundTask edge: opens its own DB session, runs enrich_bookmark
 │   └── outbound/
 │       ├── database.py         # SQLAlchemy async engine/session/Base
 │       ├── orm.py              # BookmarkRow — the SQLAlchemy table mapping
-│       └── sqlalchemy_repository.py  # implements BookmarkRepository against SQLite
+│       ├── sqlalchemy_repository.py  # implements BookmarkRepository against SQLite
+│       ├── http_content_fetcher.py   # implements ContentFetcher over httpx
+│       └── llm_bookmark_enricher.py  # implements BookmarkEnricherService (stub — litellm pending)
 └── main.py                    # composition root — builds the FastAPI app, wires the adapter in
 ```
 
@@ -149,6 +161,12 @@ are deliberately separate types; `sqlalchemy_repository.py` maps between them on
 write. This keeps the domain and application layers free of any SQLAlchemy or Pydantic import —
 swapping the database, or testing the business logic without one, only touches the outbound
 adapter.
+
+`POST /bookmarks` returns as soon as the bookmark is created; enrichment runs afterwards in a
+`BackgroundTask`. Because that task runs after the request's DB session has already closed, it
+opens its own (`background.py`) rather than reusing the route's — see `backend/CLAUDE.md` for the
+full rationale and the concurrency tradeoff this makes (a `PUT` racing the background write can
+overwrite it, accepted as-is for a single-user local app).
 
 `tests/` mirrors that structure. `tests/application/test_bookmark_service.py` demonstrates the
 payoff: it exercises `bookmark_service` against an in-memory fake repository, with no database and
@@ -168,7 +186,7 @@ API's request/response shapes.
 
 ```bash
 cd backend
-uv run pytest         # 50 tests: domain and application unit tests + adapter integration tests
+uv run pytest         # 78 tests: domain and application unit tests + adapter integration tests
 uv run ruff check .
 uv run ruff format --check .
 ```

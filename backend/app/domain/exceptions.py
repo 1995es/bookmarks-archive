@@ -13,3 +13,12 @@ class BookmarkNotFoundError(Exception):
 
 class BookmarkInvalidError(ValueError):
     """Raised by Bookmark.validate() when a domain invariant is violated."""
+
+
+class ContentFetchError(Exception):
+    """Raised by ContentFetcher.fetch() on a network failure or non-2xx status."""
+
+
+class EnrichmentError(Exception):
+    """Raised by BookmarkEnricherService.extract_data() when the provider fails
+    or its response can't be parsed into ExtractedData."""

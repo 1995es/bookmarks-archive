@@ -1,5 +1,6 @@
 """Composition root: builds the FastAPI app and wires the inbound adapter in."""
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -11,6 +12,8 @@ from app.adapters.inbound.api import router
 from app.adapters.outbound import orm  # noqa: F401  # registers BookmarkRow on Base.metadata
 from app.adapters.outbound.database import Base, engine
 from app.domain.exceptions import BookmarkInvalidError, BookmarkNotFoundError
+
+logging.basicConfig(level=logging.INFO)
 
 
 @asynccontextmanager

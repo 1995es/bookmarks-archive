@@ -5,11 +5,13 @@ type. FastAPI backend, React + Vite + TypeScript frontend, SQLite storage, Docke
 both dev and prod.
 
 After you add a bookmark it shows up immediately with whatever you typed. The backend then kicks
-off a background task that fetches the URL and is meant to ask an LLM to summarize it, appending
-the result to your description and merging in any suggested tags you didn't already have — but the
-LLM step itself is not implemented yet (see `backend/app/adapters/outbound/llm_bookmark_enricher.py`),
-so today that background task always fails harmlessly and the bookmark just stays as you entered
-it. Once implemented, it'll need an `ANTHROPIC_API_KEY` set for the backend in prod.
+off a background task that fetches the URL and asks Gemini (via litellm) to summarize it, appending
+the result to your description and merging in any suggested tags you didn't already have — see
+`backend/app/adapters/outbound/llm_bookmark_enricher.py`.
+
+**Before running the project**, copy `.env.example` to `.env` in the repo root and fill in
+`GEMINI_API_KEY` — this is mandatory. `docker-compose.prod.yml` refuses to start the backend
+without it; in dev, without it enrichment silently fails and bookmarks are never enriched.
 
 ## Stack
 
@@ -23,6 +25,13 @@ it. Once implemented, it'll need an `ANTHROPIC_API_KEY` set for the backend in p
   files.
 
 ## Running it
+
+**Setup (once, mandatory):**
+
+```bash
+cp .env.example .env
+# then edit .env and fill in GEMINI_API_KEY
+```
 
 **Dev** — hot reload on both services:
 
@@ -69,8 +78,11 @@ output is served as static files by nginx. Both use `restart: unless-stopped`.
 ```bash
 cd backend
 uv sync
-uv run uvicorn app.main:app --reload --port 8000
+GEMINI_API_KEY=... uv run uvicorn app.main:app --reload --port 8000
 ```
+
+The root `.env` is only read by `docker compose` (it substitutes `${GEMINI_API_KEY}` in the compose
+files); running uvicorn directly needs the variable exported in your shell instead.
 
 ### Running the frontend without Docker
 
@@ -152,7 +164,7 @@ backend/app/
 │       ├── orm.py              # BookmarkRow — the SQLAlchemy table mapping
 │       ├── sqlalchemy_repository.py  # implements BookmarkRepository against SQLite
 │       ├── http_content_fetcher.py   # implements ContentFetcher over httpx
-│       └── llm_bookmark_enricher.py  # implements BookmarkEnricherService (stub — litellm pending)
+│       └── llm_bookmark_enricher.py  # implements BookmarkEnricherService via litellm + Gemini
 └── main.py                    # composition root — builds the FastAPI app, wires the adapter in
 ```
 
@@ -186,7 +198,7 @@ API's request/response shapes.
 
 ```bash
 cd backend
-uv run pytest         # 78 tests: domain and application unit tests + adapter integration tests
+uv run pytest         # 87 tests: domain and application unit tests + adapter integration tests
 uv run ruff check .
 uv run ruff format --check .
 ```

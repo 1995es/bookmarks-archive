@@ -42,8 +42,8 @@ app/
 │   └── outbound/    database.py (engine/session), orm.py (BookmarkRow),
 │                    sqlalchemy_repository.py (implements BookmarkRepository),
 │                    http_content_fetcher.py (implements ContentFetcher over httpx),
-│                    llm_bookmark_enricher.py (implements BookmarkEnricherService — stub,
-│                    litellm integration pending)
+│                    llm_bookmark_enricher.py (implements BookmarkEnricherService via
+│                    litellm.acompletion against Gemini)
 └── main.py          composition root: app, CORS, exception handlers, create_all at lifespan
 ```
 
@@ -105,11 +105,12 @@ persists the merge via `Bookmark.enrich()` + `repo.save()`.
   is deliberately the only place that decides what to do with a failure.
 - **Only one repo read.** A concurrent `PUT` between the task's `get()` and `save()` can be
   overwritten by the enrichment write, or vice versa. Accepted as-is — single-user, local app.
-- **`LLMBookmarkEnricherService` is a stub** (`app/adapters/outbound/llm_bookmark_enricher.py`):
-  `extract_data()` raises `NotImplementedError`. `tests/adapters/outbound/test_llm_bookmark_enricher.py`
-  is intentionally the only test covering it, and intentionally fragile — implementing litellm
-  should break it and force writing the real tests. The docstring in that file lists the intended
-  shape (async `litellm.acompletion`, structured `response_format`, content truncation).
+- **`LLMBookmarkEnricherService`** (`app/adapters/outbound/llm_bookmark_enricher.py`) calls
+  `litellm.acompletion` against Gemini (`gemini/gemini-3.7-flash` by default, reading
+  `GEMINI_API_KEY` from the environment as litellm does implicitly for `gemini/` models),
+  requesting structured JSON output (`{description, tags}`) via `response_format`, truncating
+  `content` to `max_content_chars` first. Any `litellm` exception, or a response that doesn't parse
+  into that shape, is wrapped in `EnrichmentError`.
 
 ## Tests
 
@@ -166,4 +167,4 @@ gets a coroutine object, not a result** — assertions on it fail in confusing w
   `Base.metadata`; `main.py` does this with a `# noqa: F401` import.
 - `httpx` and `litellm` are production dependencies (not `dev`) — `HttpContentFetcher` and
   `LLMBookmarkEnricherService` need them at runtime for enrichment, not just in tests.
-  `ANTHROPIC_API_KEY` must be set wherever the LLM enricher actually runs (once it's implemented).
+  `GEMINI_API_KEY` must be set wherever the LLM enricher actually runs.

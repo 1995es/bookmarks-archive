@@ -63,6 +63,23 @@ async def test_create_rejects_empty_name(repo: FakeBookmarkRepository) -> None:
         await _create(repo, name="")
 
 
+async def test_create_without_name_derives_it_from_url_host(
+    repo: FakeBookmarkRepository,
+) -> None:
+    bookmark = await _create(repo, name=None, url="https://www.example.com/article")
+
+    assert bookmark.name == "example.com"
+
+
+async def test_create_without_type_defaults_to_post(repo: FakeBookmarkRepository) -> None:
+    bookmark = await bookmark_service.create_bookmark(
+        repo, url="https://a.com", description=None, tags=[]
+    )
+
+    assert bookmark.type == BookmarkType.POST
+    assert bookmark.name == "a.com"
+
+
 async def test_update_acts_on_fetched_domain_object(repo: FakeBookmarkRepository) -> None:
     created = await _create(repo, name="A", tags=["python"], type=BookmarkType.POST)
 

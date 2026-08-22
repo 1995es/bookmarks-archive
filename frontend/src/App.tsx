@@ -6,7 +6,13 @@ import {
   listBookmarks,
   updateBookmark,
 } from "./api";
-import type { Bookmark, BookmarkId, BookmarkInput, BookmarkType } from "./types";
+import type {
+  Bookmark,
+  BookmarkCreateInput,
+  BookmarkId,
+  BookmarkInput,
+  BookmarkType,
+} from "./types";
 
 const BOOKMARK_TYPES: BookmarkType[] = ["post", "video", "tweet", "site"];
 
@@ -73,6 +79,7 @@ export default function App() {
 
   const [newBookmark, setNewBookmark] = useState<NewBookmarkForm>(EMPTY_NEW_BOOKMARK);
   const [submitting, setSubmitting] = useState(false);
+  const [showMoreFields, setShowMoreFields] = useState(false);
 
   const [editingId, setEditingId] = useState<BookmarkId | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
@@ -100,14 +107,15 @@ export default function App() {
 
   async function handleAddSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!newBookmark.name.trim() || !newBookmark.url.trim()) {
+    const url = newBookmark.url.trim();
+    if (!url) {
       return;
     }
     setSubmitting(true);
     setError(null);
-    const input: BookmarkInput = {
-      name: newBookmark.name.trim(),
-      url: newBookmark.url.trim(),
+    const input: BookmarkCreateInput = {
+      name: newBookmark.name.trim() || undefined,
+      url,
       description: newBookmark.description.trim() || null,
       tags: parseTags(newBookmark.tagsInput),
       type: newBookmark.type,
@@ -172,7 +180,7 @@ export default function App() {
     }
   }
 
-  const addDisabled = submitting || !newBookmark.name.trim() || !newBookmark.url.trim();
+  const addDisabled = submitting || !newBookmark.url.trim();
 
   return (
     <div className="page">
@@ -185,45 +193,61 @@ export default function App() {
       )}
 
       <form className="add-form" onSubmit={handleAddSubmit}>
-        <input
-          type="text"
-          placeholder="Name"
-          value={newBookmark.name}
-          onChange={(e) => setNewBookmark({ ...newBookmark, name: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="URL"
-          value={newBookmark.url}
-          onChange={(e) => setNewBookmark({ ...newBookmark, url: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Description"
-          value={newBookmark.description}
-          onChange={(e) => setNewBookmark({ ...newBookmark, description: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Tags (comma separated)"
-          value={newBookmark.tagsInput}
-          onChange={(e) => setNewBookmark({ ...newBookmark, tagsInput: e.target.value })}
-        />
-        <select
-          value={newBookmark.type}
-          onChange={(e) =>
-            setNewBookmark({ ...newBookmark, type: e.target.value as BookmarkType })
-          }
-        >
-          {BOOKMARK_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
-        <button type="submit" disabled={addDisabled}>
-          Add bookmark
-        </button>
+        <div className="add-form-row">
+          <input
+            type="text"
+            placeholder="URL"
+            value={newBookmark.url}
+            onChange={(e) => setNewBookmark({ ...newBookmark, url: e.target.value })}
+          />
+          <button type="submit" disabled={addDisabled}>
+            Add bookmark
+          </button>
+        </div>
+
+        <label className="add-form-toggle">
+          <input
+            type="checkbox"
+            checked={showMoreFields}
+            onChange={(e) => setShowMoreFields(e.target.checked)}
+          />
+          Add more details
+        </label>
+
+        {showMoreFields && (
+          <div className="add-form-row">
+            <input
+              type="text"
+              placeholder="Name (optional, taken from URL otherwise)"
+              value={newBookmark.name}
+              onChange={(e) => setNewBookmark({ ...newBookmark, name: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Description"
+              value={newBookmark.description}
+              onChange={(e) => setNewBookmark({ ...newBookmark, description: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Tags (comma separated)"
+              value={newBookmark.tagsInput}
+              onChange={(e) => setNewBookmark({ ...newBookmark, tagsInput: e.target.value })}
+            />
+            <select
+              value={newBookmark.type}
+              onChange={(e) =>
+                setNewBookmark({ ...newBookmark, type: e.target.value as BookmarkType })
+              }
+            >
+              {BOOKMARK_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </form>
 
       <div className="filters">

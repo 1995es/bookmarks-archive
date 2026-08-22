@@ -1,9 +1,16 @@
 """Bookmark use cases. Depend only on the BookmarkRepository port, never on a concrete adapter."""
 
 import uuid
+from urllib.parse import urlparse
 
 from app.domain.models import Bookmark, BookmarkType
 from app.domain.ports import BookmarkRepository
+
+
+def derive_name_from_url(url: str) -> str:
+    """Fallback name for the url-only fast path: the URL's host, minus a leading www."""
+    hostname = urlparse(url).hostname or url
+    return hostname.removeprefix("www.")
 
 
 async def list_bookmarks(
@@ -23,15 +30,15 @@ async def get_bookmark(repo: BookmarkRepository, bookmark_id: uuid.UUID) -> Book
 async def create_bookmark(
     repo: BookmarkRepository,
     *,
-    name: str,
     url: str,
+    name: str | None = None,
     description: str | None,
     tags: list[str],
-    type: BookmarkType,
+    type: BookmarkType = BookmarkType.POST,
 ) -> Bookmark:
     bookmark = Bookmark(
         id=uuid.uuid7(),
-        name=name,
+        name=name if name is not None else derive_name_from_url(url),
         url=url,
         description=description,
         tags=tags,

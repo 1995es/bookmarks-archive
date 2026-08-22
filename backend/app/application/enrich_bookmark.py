@@ -2,6 +2,7 @@
 
 import uuid
 
+from app.application.bookmark_service import derive_name_from_url
 from app.domain.models import Bookmark
 from app.domain.ports import BookmarkEnricherService, BookmarkRepository, ContentFetcher
 
@@ -25,7 +26,15 @@ async def enrich_bookmark(
     if bookmark is None:
         return None
 
-    content = await fetcher.fetch(bookmark.url)
-    data = await enricher.extract_data(url=bookmark.url, content=content)
-    bookmark.enrich(data)
+    fetched = await fetcher.fetch(bookmark.url)
+    data = await enricher.extract_data(url=bookmark.url, fetched=fetched)
+
+    # Only replace the name if it's still the create-time fallback derived from
+    # the URL's host — a name the user actually chose (at creation or via a
+    # later edit) is left alone.
+    fetched_name = None
+    if fetched.name and bookmark.name == derive_name_from_url(bookmark.url):
+        fetched_name = fetched.name
+
+    bookmark.enrich(data, name=fetched_name)
     return await repo.save(bookmark)

@@ -7,6 +7,7 @@ from types import TracebackType
 import httpx
 
 from app.domain.exceptions import ContentFetchError
+from app.domain.models import FetchedContent
 from app.domain.ports import ContentFetcher
 
 _TIMEOUT_SECONDS = 10.0
@@ -78,11 +79,12 @@ class _ContentExtractor(HTMLParser):
 
 
 class HttpContentFetcher(ContentFetcher):
-    """Fetches a URL and returns its extracted text content, capped at _MAX_RESPONSE_BYTES.
+    """Fetches a URL and returns its extracted content as a FetchedContent, capped at
+    _MAX_RESPONSE_BYTES.
 
-    "Extracted" means: title and meta description surfaced up front, script/style/nav/
-    header/footer/etc. dropped rather than just un-tagged, and body text scoped to
-    <main>/<article> when the page provides one — all to keep boilerplate out of what
+    "Extracted" means: title and meta description surfaced as their own fields, script/
+    style/nav/header/footer/etc. dropped rather than just un-tagged, and body text scoped
+    to <main>/<article> when the page provides one — all to keep boilerplate out of what
     gets passed to the enricher.
 
     Created per background task and closed via `async with` — a single request per
@@ -107,7 +109,7 @@ class HttpContentFetcher(ContentFetcher):
     ) -> None:
         await self._client.aclose()
 
-    async def fetch(self, url: str) -> str:
+    async def fetch(self, url: str) -> FetchedContent:
         try:
             async with self._client.stream("GET", url) as response:
                 if response.status_code >= 400:
@@ -131,18 +133,12 @@ class HttpContentFetcher(ContentFetcher):
         return self._extract(text)
 
     @staticmethod
-    def _extract(html: str) -> str:
+    def _extract(html: str) -> FetchedContent:
         extractor = _ContentExtractor()
         # A truncated response can end mid-tag; HTMLParser tolerates malformed/
         # unterminated markup rather than raising, so no extra guarding is needed.
         extractor.feed(html)
         extractor.close()
 
-        parts = []
-        if extractor.title.strip():
-            parts.append(f"Title: {_WHITESPACE_RE.sub(' ', extractor.title).strip()}")
-        if extractor.description:
-            parts.append(f"Description: {extractor.description}")
-        if extractor.body:
-            parts.append(extractor.body)
-        return "\n".join(parts)
+        name = _WHITESPACE_RE.sub(" ", extractor.title).strip()
+        return FetchedContent(name=name, description=extractor.description, content=extractor.body)

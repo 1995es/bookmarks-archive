@@ -3,7 +3,7 @@
 import uuid
 from abc import ABC, abstractmethod
 
-from app.domain.models import Bookmark, BookmarkType, ExtractedData
+from app.domain.models import Bookmark, BookmarkType, ExtractedData, FetchedContent
 
 
 class BookmarkRepository(ABC):
@@ -36,10 +36,10 @@ class BookmarkRepository(ABC):
 
 
 class ContentFetcher(ABC):
-    """Fetches the textual content behind a bookmark's URL."""
+    """Fetches and extracts the structured content behind a bookmark's URL."""
 
     @abstractmethod
-    async def fetch(self, url: str) -> str:
+    async def fetch(self, url: str) -> FetchedContent:
         """Raises ContentFetchError on a network failure or non-2xx status."""
         ...
 
@@ -47,12 +47,14 @@ class ContentFetcher(ABC):
 class BookmarkEnricherService(ABC):
     """Derives a description and tags from a bookmark's URL and fetched content.
 
-    Takes url alongside content because the URL (domain, path) is itself a
-    useful signal for the provider — passing the full Bookmark instead would
-    couple this port to the entity for no real gain.
+    Takes url alongside the fetched content because the URL (domain, path) is
+    itself a useful signal for the provider — passing the full Bookmark instead
+    would couple this port to the entity for no real gain. The fetched page's
+    own title/description are passed alongside its body text so the provider
+    has more context than the body alone would give it.
     """
 
     @abstractmethod
-    async def extract_data(self, *, url: str, content: str) -> ExtractedData:
+    async def extract_data(self, *, url: str, fetched: FetchedContent) -> ExtractedData:
         """Raises EnrichmentError if the provider fails or its response isn't parseable."""
         ...

@@ -7,6 +7,7 @@ import pytest
 
 from app.domain.models import (
     _MAX_DESCRIPTION_LENGTH,
+    _MAX_NAME_LENGTH,
     _MAX_TAG_LENGTH,
     Bookmark,
     BookmarkType,
@@ -189,3 +190,28 @@ def test_enrich_does_not_touch_name_url_type() -> None:
     assert bookmark.name == "A"
     assert bookmark.url == "https://a.com"
     assert bookmark.type == BookmarkType.VIDEO
+
+
+def test_enrich_replaces_name_when_given() -> None:
+    bookmark = _bookmark(name="A")
+
+    bookmark.enrich(ExtractedData(description="d", tags=[]), name="Real Title")
+
+    assert bookmark.name == "Real Title"
+
+
+def test_enrich_ignores_blank_name() -> None:
+    bookmark = _bookmark(name="A")
+
+    bookmark.enrich(ExtractedData(description="d", tags=[]), name="")
+
+    assert bookmark.name == "A"
+
+
+def test_enrich_truncates_oversized_name() -> None:
+    bookmark = _bookmark(name="A")
+    long_name = "x" * (_MAX_NAME_LENGTH + 10)
+
+    bookmark.enrich(ExtractedData(description="d", tags=[]), name=long_name)
+
+    assert bookmark.name == long_name[:_MAX_NAME_LENGTH]

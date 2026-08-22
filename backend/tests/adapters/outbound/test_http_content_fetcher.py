@@ -23,10 +23,10 @@ async def test_returns_text_content() -> None:
         return httpx.Response(200, html="<html><body><p>Hello world</p></body></html>")
 
     async with _fetcher(handler) as fetcher:
-        content = await fetcher.fetch("https://example.com")
+        fetched = await fetcher.fetch("https://example.com")
 
-    assert "Hello world" in content
-    assert "<" not in content
+    assert "Hello world" in fetched.content
+    assert "<" not in fetched.content
 
 
 async def test_raises_on_http_error_status() -> None:
@@ -54,9 +54,9 @@ async def test_truncates_oversized_response() -> None:
         return httpx.Response(200, content=oversized_body)
 
     async with _fetcher(handler) as fetcher:
-        content = await fetcher.fetch("https://example.com")
+        fetched = await fetcher.fetch("https://example.com")
 
-    assert len(content) <= _MAX_RESPONSE_BYTES
+    assert len(fetched.content) <= _MAX_RESPONSE_BYTES
 
 
 async def test_follows_redirects() -> None:
@@ -66,9 +66,9 @@ async def test_follows_redirects() -> None:
         return httpx.Response(200, html="<p>final destination</p>")
 
     async with _fetcher(handler) as fetcher:
-        content = await fetcher.fetch("https://example.com/start")
+        fetched = await fetcher.fetch("https://example.com/start")
 
-    assert "final destination" in content
+    assert "final destination" in fetched.content
 
 
 async def test_drops_script_and_style_content() -> None:
@@ -81,11 +81,11 @@ async def test_drops_script_and_style_content() -> None:
         return httpx.Response(200, html=html)
 
     async with _fetcher(handler) as fetcher:
-        content = await fetcher.fetch("https://example.com")
+        fetched = await fetcher.fetch("https://example.com")
 
-    assert "Real content" in content
-    assert "color: red" not in content
-    assert "alert" not in content
+    assert "Real content" in fetched.content
+    assert "color: red" not in fetched.content
+    assert "alert" not in fetched.content
 
 
 async def test_drops_nav_header_footer_content() -> None:
@@ -102,12 +102,12 @@ async def test_drops_nav_header_footer_content() -> None:
         return httpx.Response(200, html=html)
 
     async with _fetcher(handler) as fetcher:
-        content = await fetcher.fetch("https://example.com")
+        fetched = await fetcher.fetch("https://example.com")
 
-    assert "Real content" in content
-    assert "Home About Contact" not in content
-    assert "Site Header" not in content
-    assert "Copyright 2026" not in content
+    assert "Real content" in fetched.content
+    assert "Home About Contact" not in fetched.content
+    assert "Site Header" not in fetched.content
+    assert "Copyright 2026" not in fetched.content
 
 
 async def test_prefers_main_content_over_surrounding_chrome() -> None:
@@ -122,10 +122,10 @@ async def test_prefers_main_content_over_surrounding_chrome() -> None:
         return httpx.Response(200, html=html)
 
     async with _fetcher(handler) as fetcher:
-        content = await fetcher.fetch("https://example.com")
+        fetched = await fetcher.fetch("https://example.com")
 
-    assert "The actual article text" in content
-    assert "Sidebar chrome" not in content
+    assert "The actual article text" in fetched.content
+    assert "Sidebar chrome" not in fetched.content
 
 
 async def test_surfaces_title_and_meta_description() -> None:
@@ -140,7 +140,21 @@ async def test_surfaces_title_and_meta_description() -> None:
         return httpx.Response(200, html=html)
 
     async with _fetcher(handler) as fetcher:
-        content = await fetcher.fetch("https://example.com")
+        fetched = await fetcher.fetch("https://example.com")
 
-    assert content.startswith("Title: Example Page\nDescription: A page about examples.\n")
-    assert "Body text" in content
+    assert fetched.name == "Example Page"
+    assert fetched.description == "A page about examples."
+    assert "Body text" in fetched.content
+
+
+async def test_missing_title_yields_empty_name() -> None:
+    html = "<html><body><p>Body text</p></body></html>"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, html=html)
+
+    async with _fetcher(handler) as fetcher:
+        fetched = await fetcher.fetch("https://example.com")
+
+    assert fetched.name == ""
+    assert fetched.description == ""

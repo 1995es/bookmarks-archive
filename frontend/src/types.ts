@@ -20,3 +20,13 @@ export interface BookmarkInput {
   tags: string[];
   type: BookmarkType;
 }
+
+/** POST /bookmarks only requires `url`: a blank/omitted `name` is derived server-side
+ * from the URL's host, and an omitted `type` defaults to 'post'. */
+export interface BookmarkCreateInput {
+  name?: string | null;
+  url: string;
+  description: string | null;
+  tags: string[];
+  type?: BookmarkType;
+}

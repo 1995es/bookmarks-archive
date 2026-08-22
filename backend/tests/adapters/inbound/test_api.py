@@ -23,7 +23,7 @@ from app.adapters.outbound.database import Base, get_db
 from app.adapters.outbound.orm import BookmarkRow
 from app.adapters.outbound.sqlalchemy_repository import SqlAlchemyBookmarkRepository
 from app.application.enrich_bookmark import enrich_bookmark
-from app.domain.models import ExtractedData
+from app.domain.models import ExtractedData, FetchedContent
 from app.domain.ports import BookmarkEnricherService, ContentFetcher
 from app.main import app
 
@@ -255,6 +255,30 @@ async def test_tag_filter_is_exact_not_substring(client: AsyncClient) -> None:
     assert resp.json() == []
 
 
+# --- Fast path: url is the only required field ---
+
+
+async def test_create_with_only_url_derives_name_and_defaults_type(client: AsyncClient) -> None:
+    resp = await client.post("/bookmarks", json={"url": "https://www.example.com/article"})
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["name"] == "example.com"
+    assert body["type"] == "post"
+    assert body["description"] is None
+    assert body["tags"] == []
+
+
+async def test_create_with_blank_name_derives_name_from_url(client: AsyncClient) -> None:
+    resp = await client.post("/bookmarks", json=make_payload(name="   "))
+    assert resp.status_code == 201
+    assert resp.json()["name"] == "example.com"
+
+
+async def test_create_without_url_422(client: AsyncClient) -> None:
+    resp = await client.post("/bookmarks", json={"name": "A"})
+    assert resp.status_code == 422
+
+
 # --- Validation ---
 
 
@@ -354,12 +378,12 @@ async def test_other_endpoints_do_not_schedule_enrichment(client: AsyncClient) -
 
 
 class _FixedContentFetcher:
-    async def fetch(self, url: str) -> str:
-        return "fetched content"
+    async def fetch(self, url: str) -> FetchedContent:
+        return FetchedContent(name="", description="", content="fetched content")
 
 
 class _FixedEnricherService:
-    async def extract_data(self, *, url: str, content: str) -> ExtractedData:
+    async def extract_data(self, *, url: str, fetched: FetchedContent) -> ExtractedData:
         return ExtractedData(description="generated summary", tags=["python"])
 
 
@@ -381,3 +405,23 @@ async def test_enrichment_writes_are_visible_through_the_api(
     body = resp.json()
     assert "generated summary" in body["description"]
     assert "python" in body["tags"]
+
+
+async def test_enrichment_replaces_placeholder_name_with_fetched_title(
+    client: AsyncClient, db_engine: tuple[async_sessionmaker[AsyncSession], str]
+) -> None:
+    session_factory, _ = db_engine
+
+    class _TitledContentFetcher:
+        async def fetch(self, url: str) -> FetchedContent:
+            return FetchedContent(name="Real Page Title", description="", content="content")
+
+    app.dependency_overrides[get_enrichment_runner] = lambda: make_real_enrichment_runner(
+        session_factory, _TitledContentFetcher(), _FixedEnricherService()
+    )
+
+    created = (await client.post("/bookmarks", json={"url": "https://www.example.com"})).json()
+    assert created["name"] == "example.com"
+
+    resp = await client.get(f"/bookmarks/{created['id']}")
+    assert resp.json()["name"] == "Real Page Title"

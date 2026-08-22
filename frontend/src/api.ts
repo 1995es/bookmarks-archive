@@ -1,4 +1,4 @@
-import type { Bookmark, BookmarkId, BookmarkInput, BookmarkType } from "./types";
+import type { Bookmark, BookmarkCreateInput, BookmarkId, BookmarkInput, BookmarkType } from "./types";
 
 const BASE_URL: string = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
@@ -56,7 +56,7 @@ export function getBookmark(id: BookmarkId): Promise<Bookmark> {
   return request<Bookmark>(`/bookmarks/${id}`);
 }
 
-export function createBookmark(input: BookmarkInput): Promise<Bookmark> {
+export function createBookmark(input: BookmarkCreateInput): Promise<Bookmark> {
   return request<Bookmark>(`/bookmarks`, {
     method: "POST",
     body: JSON.stringify(input),

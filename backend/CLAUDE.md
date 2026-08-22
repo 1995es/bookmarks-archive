@@ -73,6 +73,15 @@ and rejects violations with FastAPI's own 422. `Bookmark.validate()` enforces th
 invariants (non-empty name and url) independently, so the domain stays correct even when reached
 without going through HTTP. `main.py` maps `BookmarkInvalidError` → 422 to match.
 
+`BookmarkCreate` diverges from `BookmarkBase` (which `BookmarkUpdate`/`BookmarkRead` still use):
+`url` is the only required field. A blank or omitted `name` is turned into `None` by
+`BookmarkCreate`'s own validator, and `bookmark_service.create_bookmark` derives a fallback from
+the URL's host (`_derive_name_from_url`, stripping a leading `www.`) only when `name is None` — an
+explicit empty string still fails `Bookmark.validate()`, which is what
+`test_create_rejects_empty_name` pins down. An omitted `type` defaults to `BookmarkType.POST` in
+both the schema and the service function. This asymmetry is deliberate: editing an existing
+bookmark already has real values, so `PUT` keeps the stricter `BookmarkBase` contract.
+
 ### Error handling
 
 - Everyday "not found" is expressed as `None` returned from the service layer; `api.py` raises
@@ -91,9 +100,21 @@ contract, not an implementation choice.
 
 `POST /bookmarks` schedules a `BackgroundTask` (`background.py::run_enrichment`) that runs
 `enrich_bookmark()` after the response is returned: it fetches the bookmark's URL
-(`ContentFetcher`), derives a description/tags from the content (`BookmarkEnricherService`), and
-persists the merge via `Bookmark.enrich()` + `repo.save()`.
+(`ContentFetcher`, returning a `FetchedContent`), derives a description/tags from it
+(`BookmarkEnricherService`), and persists the merge via `Bookmark.enrich()` + `repo.save()`.
 
+- **`ContentFetcher.fetch()` returns a `FetchedContent`** (`domain/models.py`) — `name`
+  (`<title>`), `description` (meta description), and `content` (boilerplate-stripped body text) as
+  separate fields, rather than one flattened string. `BookmarkEnricherService.extract_data()` takes
+  the whole `FetchedContent` (as `fetched`, alongside `url`) so the LLM prompt gets the page's own
+  title/description as distinct signals from its body, not just body text.
+- **`enrich_bookmark()` also updates the bookmark's name from `fetched.name`, conditionally.** It
+  only overwrites when the bookmark's current name still equals
+  `bookmark_service.derive_name_from_url(bookmark.url)` — i.e. still the create-time placeholder
+  from the url-only fast path — and `fetched.name` is non-empty. A name the user actually typed (at
+  creation or via a later edit) is left alone. `Bookmark.enrich(data, *, name=...)` does the
+  replacement outright (not merged like description) and truncates to `_MAX_NAME_LENGTH`, same
+  reasoning as the description/tags truncation below.
 - **The background task opens its own `AsyncSession` via `SessionLocal`, never the route's.**
   `get_db` closes its session when the request ends, before the task runs, so the route's injected
   `repo` is unusable by then. `background.py` composes a fresh `SqlAlchemyBookmarkRepository` for
@@ -106,11 +127,11 @@ persists the merge via `Bookmark.enrich()` + `repo.save()`.
 - **Only one repo read.** A concurrent `PUT` between the task's `get()` and `save()` can be
   overwritten by the enrichment write, or vice versa. Accepted as-is — single-user, local app.
 - **`LLMBookmarkEnricherService`** (`app/adapters/outbound/llm_bookmark_enricher.py`) calls
-  `litellm.acompletion` against Gemini (`gemini/gemini-3.7-flash` by default, reading
+  `litellm.acompletion` against Gemini (`gemini/gemini-3.5-flash` by default, reading
   `GEMINI_API_KEY` from the environment as litellm does implicitly for `gemini/` models),
   requesting structured JSON output (`{description, tags}`) via `response_format`, truncating
-  `content` to `max_content_chars` first. Any `litellm` exception, or a response that doesn't parse
-  into that shape, is wrapped in `EnrichmentError`.
+  `fetched.content` to `max_content_chars` first. Any `litellm` exception, or a response that
+  doesn't parse into that shape, is wrapped in `EnrichmentError`.
 
 ## Tests
 

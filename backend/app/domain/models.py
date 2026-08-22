@@ -15,9 +15,25 @@ class BookmarkType(str, Enum):
     SITE = "site"
 
 
+_MAX_NAME_LENGTH = 200
 _MAX_TAGS = 50
 _MAX_TAG_LENGTH = 50
 _MAX_DESCRIPTION_LENGTH = 2000
+
+
+@dataclass(frozen=True)
+class FetchedContent:
+    """Title, meta description, and body text extracted from a bookmark's URL.
+
+    Returned by ContentFetcher.fetch() — a structured alternative to a single
+    blob of text, so BookmarkEnricherService gets the page's own title/description
+    as distinct signals from the body, and enrich_bookmark can use `name` to
+    replace a placeholder bookmark name without re-parsing the page itself.
+    """
+
+    name: str
+    description: str
+    content: str
 
 
 @dataclass(frozen=True)
@@ -75,7 +91,7 @@ class Bookmark:
         self.type = type
         self.validate()
 
-    def enrich(self, data: ExtractedData) -> None:
+    def enrich(self, data: ExtractedData, *, name: str | None = None) -> None:
         """Merge generated description/tags onto what the user already provided.
 
         Description is appended (not replaced) so a user-written description
@@ -84,7 +100,17 @@ class Bookmark:
         the LLM path never goes through Pydantic, so an oversized or empty tag,
         or an over-length description, would otherwise persist and then fail
         BookmarkRead validation on every subsequent read.
+
+        `name`, unlike description, is replaced outright rather than merged —
+        two names can't be meaningfully combined the way two paragraphs can.
+        Passing one is opt-in: the caller (enrich_bookmark) decides whether the
+        current name is still the auto-derived placeholder worth replacing, or
+        a name the user actually chose. Truncated to _MAX_NAME_LENGTH for the
+        same reason description/tags are: this never passes through Pydantic.
         """
+        if name:
+            self.name = name[:_MAX_NAME_LENGTH]
+
         if self.description:
             merged = f"{self.description}\n\n{data.description}"
         else:

@@ -13,24 +13,24 @@ import pytest
 from app.application import bookmark_service
 from app.application.enrich_bookmark import enrich_bookmark
 from app.domain.exceptions import BookmarkNotFoundError, ContentFetchError, EnrichmentError
-from app.domain.models import BookmarkType, ExtractedData
+from app.domain.models import BookmarkType, ExtractedData, FetchedContent
 from tests.fakes import FakeBookmarkRepository
 
 
 class FakeContentFetcher:
     """Returns fixed content and records every URL it was asked to fetch."""
 
-    def __init__(self, content: str = "fetched content") -> None:
-        self.content = content
+    def __init__(self, fetched: FetchedContent | None = None) -> None:
+        self.fetched = fetched or FetchedContent(name="", description="", content="fetched content")
         self.requested_urls: list[str] = []
 
-    async def fetch(self, url: str) -> str:
+    async def fetch(self, url: str) -> FetchedContent:
         self.requested_urls.append(url)
-        return self.content
+        return self.fetched
 
 
 class FailingContentFetcher:
-    async def fetch(self, url: str) -> str:
+    async def fetch(self, url: str) -> FetchedContent:
         raise ContentFetchError("boom")
 
 
@@ -48,17 +48,17 @@ class FakeEnricherService:
     ) -> None:
         self.data = data
         self.on_call = on_call
-        self.received: list[tuple[str, str]] = []
+        self.received: list[tuple[str, FetchedContent]] = []
 
-    async def extract_data(self, *, url: str, content: str) -> ExtractedData:
-        self.received.append((url, content))
+    async def extract_data(self, *, url: str, fetched: FetchedContent) -> ExtractedData:
+        self.received.append((url, fetched))
         if self.on_call is not None:
             self.on_call()
         return self.data
 
 
 class FailingEnricherService:
-    async def extract_data(self, *, url: str, content: str) -> ExtractedData:
+    async def extract_data(self, *, url: str, fetched: FetchedContent) -> ExtractedData:
         raise EnrichmentError("boom")
 
 
@@ -87,12 +87,13 @@ async def test_fetches_the_bookmark_url(repo: FakeBookmarkRepository) -> None:
 
 async def test_passes_fetched_content_to_enricher(repo: FakeBookmarkRepository) -> None:
     created = await _create(repo)
-    fetcher = FakeContentFetcher(content="some real content")
+    fetched = FetchedContent(name="Page Title", description="a desc", content="some real content")
+    fetcher = FakeContentFetcher(fetched)
     enricher = FakeEnricherService()
 
     await enrich_bookmark(created.id, repo=repo, fetcher=fetcher, enricher=enricher)
 
-    assert enricher.received == [(created.url, "some real content")]
+    assert enricher.received == [(created.url, fetched)]
 
 
 async def test_applies_extracted_data_to_bookmark(repo: FakeBookmarkRepository) -> None:
@@ -118,6 +119,44 @@ async def test_persists_the_enriched_bookmark(repo: FakeBookmarkRepository) -> N
     assert persisted is not None
     assert persisted.description == "a summary"
     assert persisted.tags == ["python"]
+
+
+async def test_replaces_placeholder_name_with_fetched_title(
+    repo: FakeBookmarkRepository,
+) -> None:
+    created = await _create(repo, name=None, url="https://www.example.com/article")
+    assert created.name == "example.com"  # sanity check: still the URL-derived placeholder
+    fetcher = FakeContentFetcher(FetchedContent(name="Real Title", description="", content=""))
+    enricher = FakeEnricherService()
+
+    result = await enrich_bookmark(created.id, repo=repo, fetcher=fetcher, enricher=enricher)
+
+    assert result is not None
+    assert result.name == "Real Title"
+
+
+async def test_does_not_replace_a_user_provided_name(repo: FakeBookmarkRepository) -> None:
+    created = await _create(repo, name="My chosen name", url="https://www.example.com/article")
+    fetcher = FakeContentFetcher(FetchedContent(name="Real Title", description="", content=""))
+    enricher = FakeEnricherService()
+
+    result = await enrich_bookmark(created.id, repo=repo, fetcher=fetcher, enricher=enricher)
+
+    assert result is not None
+    assert result.name == "My chosen name"
+
+
+async def test_does_not_replace_placeholder_name_when_fetch_yields_no_title(
+    repo: FakeBookmarkRepository,
+) -> None:
+    created = await _create(repo, name=None, url="https://www.example.com/article")
+    fetcher = FakeContentFetcher(FetchedContent(name="", description="", content=""))
+    enricher = FakeEnricherService()
+
+    result = await enrich_bookmark(created.id, repo=repo, fetcher=fetcher, enricher=enricher)
+
+    assert result is not None
+    assert result.name == "example.com"
 
 
 async def test_returns_none_when_bookmark_does_not_exist(repo: FakeBookmarkRepository) -> None:

@@ -53,6 +53,23 @@ const EMPTY_NEW_BOOKMARK: NewBookmarkForm = {
   type: "post",
 };
 
+interface BulkFailure {
+  url: string;
+  error: string;
+}
+
+interface BulkResult {
+  succeeded: number;
+  failed: BulkFailure[];
+}
+
+function parseBulkUrls(input: string): string[] {
+  return input
+    .split(/\s+/)
+    .map((url) => url.trim())
+    .filter((url) => url.length > 0);
+}
+
 interface EditDraft {
   name: string;
   url: string;
@@ -87,6 +104,17 @@ export default function App() {
   const [newBookmark, setNewBookmark] = useState<NewBookmarkForm>(EMPTY_NEW_BOOKMARK);
   const [submitting, setSubmitting] = useState(false);
   const [showMoreFields, setShowMoreFields] = useState(false);
+
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
+
+  function toggleBulkMode() {
+    setBulkMode(!bulkMode);
+    setBulkResult(null);
+    setBulkText("");
+  }
 
   const [editingId, setEditingId] = useState<BookmarkId | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
@@ -174,6 +202,34 @@ export default function App() {
     }
   }
 
+  async function handleBulkSubmit(e: FormEvent) {
+    e.preventDefault();
+    const urls = parseBulkUrls(bulkText);
+    if (urls.length === 0) {
+      return;
+    }
+    setBulkSubmitting(true);
+    setBulkResult(null);
+    setError(null);
+    const outcomes = await Promise.allSettled(
+      urls.map((url) => createBookmark({ url, description: null, tags: [] })),
+    );
+    const failed: BulkFailure[] = [];
+    let succeeded = 0;
+    outcomes.forEach((outcome, i) => {
+      if (outcome.status === "fulfilled") {
+        succeeded += 1;
+      } else {
+        const err = outcome.reason;
+        failed.push({ url: urls[i], error: err instanceof Error ? err.message : String(err) });
+      }
+    });
+    setBulkResult({ succeeded, failed });
+    setBulkText(failed.map((f) => f.url).join("\n"));
+    setBulkSubmitting(false);
+    await refresh();
+  }
+
   function startEdit(bookmark: Bookmark) {
     setEditingId(bookmark.id);
     setEditDraft(toEditDraft(bookmark));
@@ -239,7 +295,9 @@ export default function App() {
     return sortOrder === "asc" ? " ▲" : " ▼";
   }
 
-  const addDisabled = submitting || !newBookmark.url.trim();
+  const addDisabled = bulkMode
+    ? bulkSubmitting || parseBulkUrls(bulkText).length === 0
+    : submitting || !newBookmark.url.trim();
   const pageStart = total === 0 ? 0 : offset + 1;
   const pageEnd = Math.min(offset + PAGE_SIZE, total);
   const hasPrevPage = offset > 0;
@@ -255,29 +313,86 @@ export default function App() {
         </div>
       )}
 
-      <form className="add-form" onSubmit={handleAddSubmit}>
+      <form className="add-form" onSubmit={bulkMode ? handleBulkSubmit : handleAddSubmit}>
         <div className="add-form-row">
-          <input
-            type="text"
-            placeholder="URL"
-            value={newBookmark.url}
-            onChange={(e) => setNewBookmark({ ...newBookmark, url: e.target.value })}
-          />
+          {bulkMode ? (
+            <textarea
+              className="bulk-url-input"
+              placeholder="One URL per line"
+              rows={4}
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+            />
+          ) : (
+            <div className="clearable-input">
+              <input
+                type="text"
+                placeholder="URL"
+                value={newBookmark.url}
+                onChange={(e) => setNewBookmark({ ...newBookmark, url: e.target.value })}
+              />
+              {newBookmark.url && (
+                <button
+                  type="button"
+                  className="clear-input-button"
+                  aria-label="Clear URL"
+                  onClick={() => setNewBookmark({ ...newBookmark, url: "" })}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          )}
           <button type="submit" disabled={addDisabled}>
-            Add bookmark
+            {bulkMode ? "Add all" : "Add"}
           </button>
         </div>
 
         <label className="add-form-toggle">
           <input
             type="checkbox"
-            checked={showMoreFields}
-            onChange={(e) => setShowMoreFields(e.target.checked)}
+            checked={bulkMode}
+            onChange={toggleBulkMode}
           />
-          Add more details
+          Bulk add
         </label>
 
-        {showMoreFields && (
+        {bulkMode && bulkSubmitting && (
+          <div className="status-line">
+            Adding {parseBulkUrls(bulkText).length} bookmarks…
+          </div>
+        )}
+
+        {bulkMode && bulkResult && !bulkSubmitting && (
+          <div className="bulk-add-summary">
+            <p>
+              {bulkResult.succeeded} added
+              {bulkResult.failed.length > 0 && `, ${bulkResult.failed.length} failed`}.
+            </p>
+            {bulkResult.failed.length > 0 && (
+              <ul className="bulk-add-failures">
+                {bulkResult.failed.map((failure) => (
+                  <li key={failure.url}>
+                    <strong>{failure.url}</strong>: {failure.error}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {!bulkMode && newBookmark.url.trim() !== "" && (
+          <label className="add-form-toggle">
+            <input
+              type="checkbox"
+              checked={showMoreFields}
+              onChange={(e) => setShowMoreFields(e.target.checked)}
+            />
+            Add more details
+          </label>
+        )}
+
+        {!bulkMode && newBookmark.url.trim() !== "" && showMoreFields && (
           <div className="add-form-row">
             <input
               type="text"

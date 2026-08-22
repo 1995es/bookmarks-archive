@@ -10,7 +10,9 @@ from app.adapters.outbound.database import get_db
 from app.adapters.outbound.orm import BookmarkRow
 from app.domain.exceptions import BookmarkNotFoundError
 from app.domain.models import Bookmark, BookmarkType
-from app.domain.ports import BookmarkRepository
+from app.domain.ports import BookmarkRepository, SortField, SortOrder
+
+_SORT_COLUMNS = {"name": BookmarkRow.name, "created_at": BookmarkRow.created_at}
 
 
 def _to_domain(row: BookmarkRow) -> Bookmark:
@@ -24,6 +26,18 @@ def _to_domain(row: BookmarkRow) -> Bookmark:
         created_at=row.created_at,
         deleted_at=row.deleted_at,
     )
+
+
+def _apply_filters(stmt, *, name: str | None, type: BookmarkType | None, tag: str | None):
+    stmt = stmt.where(BookmarkRow.deleted_at.is_(None))
+    if name is not None:
+        stmt = stmt.where(BookmarkRow.name.ilike(f"%{name}%"))
+    if type is not None:
+        stmt = stmt.where(BookmarkRow.type == type)
+    if tag is not None:
+        tag_value = func.json_each(BookmarkRow.tags).table_valued("value")
+        stmt = stmt.where(select(1).select_from(tag_value).where(tag_value.c.value == tag).exists())
+    return stmt
 
 
 def _copy_into_row(bookmark: Bookmark, row: BookmarkRow) -> None:
@@ -49,19 +63,29 @@ class SqlAlchemyBookmarkRepository(BookmarkRepository):
         name: str | None = None,
         type: BookmarkType | None = None,
         tag: str | None = None,
+        sort_by: SortField = "created_at",
+        sort_order: SortOrder = "desc",
+        limit: int = 50,
+        offset: int = 0,
     ) -> list[Bookmark]:
-        stmt = select(BookmarkRow).where(BookmarkRow.deleted_at.is_(None))
-        if name is not None:
-            stmt = stmt.where(BookmarkRow.name.ilike(f"%{name}%"))
-        if type is not None:
-            stmt = stmt.where(BookmarkRow.type == type)
-        if tag is not None:
-            tag_value = func.json_each(BookmarkRow.tags).table_valued("value")
-            stmt = stmt.where(
-                select(1).select_from(tag_value).where(tag_value.c.value == tag).exists()
-            )
+        stmt = _apply_filters(select(BookmarkRow), name=name, type=type, tag=tag)
+        column = _SORT_COLUMNS[sort_by]
+        stmt = stmt.order_by(column.desc() if sort_order == "desc" else column.asc())
+        stmt = stmt.limit(limit).offset(offset)
         rows = (await self._db.execute(stmt)).scalars().all()
         return [_to_domain(row) for row in rows]
+
+    async def count(
+        self,
+        *,
+        name: str | None = None,
+        type: BookmarkType | None = None,
+        tag: str | None = None,
+    ) -> int:
+        stmt = _apply_filters(
+            select(func.count()).select_from(BookmarkRow), name=name, type=type, tag=tag
+        )
+        return (await self._db.execute(stmt)).scalar_one()
 
     async def get(self, bookmark_id: uuid.UUID) -> Bookmark | None:
         stmt = select(BookmarkRow).where(

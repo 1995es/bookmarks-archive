@@ -5,7 +5,7 @@ import uuid
 
 from app.domain.exceptions import BookmarkNotFoundError
 from app.domain.models import Bookmark, BookmarkType
-from app.domain.ports import BookmarkRepository
+from app.domain.ports import BookmarkRepository, SortField, SortOrder
 
 
 class FakeBookmarkRepository(BookmarkRepository):
@@ -21,12 +21,12 @@ class FakeBookmarkRepository(BookmarkRepository):
     def __init__(self) -> None:
         self._rows: dict[uuid.UUID, Bookmark] = {}
 
-    async def list(
+    def _filtered(
         self,
         *,
-        name: str | None = None,
-        type: BookmarkType | None = None,
-        tag: str | None = None,
+        name: str | None,
+        type: BookmarkType | None,
+        tag: str | None,
     ) -> list[Bookmark]:
         rows = [b for b in self._rows.values() if not b.is_deleted]
         if name is not None:
@@ -35,7 +35,33 @@ class FakeBookmarkRepository(BookmarkRepository):
             rows = [b for b in rows if b.type == type]
         if tag is not None:
             rows = [b for b in rows if tag in b.tags]
+        return rows
+
+    async def list(
+        self,
+        *,
+        name: str | None = None,
+        type: BookmarkType | None = None,
+        tag: str | None = None,
+        sort_by: SortField = "created_at",
+        sort_order: SortOrder = "desc",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[Bookmark]:
+        rows = self._filtered(name=name, type=type, tag=tag)
+        key = (lambda b: b.name.lower()) if sort_by == "name" else (lambda b: b.created_at)
+        rows.sort(key=key, reverse=sort_order == "desc")
+        rows = rows[offset : offset + limit]
         return [copy.deepcopy(b) for b in rows]
+
+    async def count(
+        self,
+        *,
+        name: str | None = None,
+        type: BookmarkType | None = None,
+        tag: str | None = None,
+    ) -> int:
+        return len(self._filtered(name=name, type=type, tag=tag))
 
     async def get(self, bookmark_id: uuid.UUID) -> Bookmark | None:
         bookmark = self._rows.get(bookmark_id)

@@ -127,6 +127,19 @@ button:disabled {
   font-size: 14px;
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 4px;
+}
+
+.pagination-status {
+  color: #9b9a97;
+  font-size: 14px;
+  margin-right: auto;
+}
+
 .bookmarks-table {
   width: 100%;
   border-collapse: collapse;
@@ -147,6 +160,15 @@ button:disabled {
   color: #9b9a97;
   font-weight: 600;
   border-bottom: 1px solid #e9e9e7;
+}
+
+.bookmarks-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.bookmarks-table th.sortable:hover {
+  color: #6b6a67;
 }
 
 .bookmarks-table td:nth-child(2) {

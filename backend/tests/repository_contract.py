@@ -10,6 +10,7 @@ rule being duplicated and unguarded per adapter.
 """
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 
@@ -57,6 +58,54 @@ async def test_get_returns_none_for_soft_deleted(repo) -> None:
     await repo.save(added)
 
     assert await repo.get(added.id) is None
+
+
+async def test_list_defaults_to_created_at_descending(repo) -> None:
+    first = await repo.add(make_bookmark(name="First", created_at=datetime(2024, 1, 1, tzinfo=UTC)))
+    second = await repo.add(
+        make_bookmark(name="Second", created_at=datetime(2024, 1, 2, tzinfo=UTC))
+    )
+
+    result = await repo.list()
+
+    assert [b.id for b in result] == [second.id, first.id]
+
+
+async def test_list_sorts_by_name_ascending(repo) -> None:
+    await repo.add(make_bookmark(name="Banana"))
+    await repo.add(make_bookmark(name="Apple"))
+
+    result = await repo.list(sort_by="name", sort_order="asc")
+
+    assert [b.name for b in result] == ["Apple", "Banana"]
+
+
+async def test_list_respects_limit_and_offset(repo) -> None:
+    await repo.add(make_bookmark(name="Apple"))
+    await repo.add(make_bookmark(name="Banana"))
+    await repo.add(make_bookmark(name="Cherry"))
+
+    page = await repo.list(sort_by="name", sort_order="asc", limit=1, offset=1)
+
+    assert [b.name for b in page] == ["Banana"]
+
+
+async def test_count_ignores_limit_and_offset_but_respects_filters(repo) -> None:
+    await repo.add(make_bookmark(name="A", tags=["python"]))
+    await repo.add(make_bookmark(name="B", tags=["ruby"]))
+
+    assert await repo.count() == 2
+    assert await repo.count(tag="python") == 1
+
+
+async def test_count_excludes_soft_deleted(repo) -> None:
+    kept = await repo.add(make_bookmark(name="Kept"))
+    deleted = await repo.add(make_bookmark(name="Deleted"))
+    deleted.delete()
+    await repo.save(deleted)
+
+    assert await repo.count() == 1
+    assert kept.name == "Kept"
 
 
 async def test_save_raises_not_found_when_deleted_concurrently(repo) -> None:

@@ -6,6 +6,7 @@ import {
   listBookmarks,
   updateBookmark,
 } from "./api";
+import type { BookmarkSortBy, BookmarkSortOrder } from "./api";
 import type {
   Bookmark,
   BookmarkCreateInput,
@@ -15,6 +16,7 @@ import type {
 } from "./types";
 
 const BOOKMARK_TYPES: BookmarkType[] = ["post", "video", "tweet", "site"];
+const PAGE_SIZE = 20;
 
 function parseTags(input: string): string[] {
   return input
@@ -71,11 +73,16 @@ function toEditDraft(bookmark: Bookmark): EditDraft {
 
 export default function App() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [filterTag, setFilterTag] = useState("");
   const [filterType, setFilterType] = useState<BookmarkType | "">("");
+
+  const [sortBy, setSortBy] = useState<BookmarkSortBy>("created_at");
+  const [sortOrder, setSortOrder] = useState<BookmarkSortOrder>("desc");
+  const [offset, setOffset] = useState(0);
 
   const [newBookmark, setNewBookmark] = useState<NewBookmarkForm>(EMPTY_NEW_BOOKMARK);
   const [submitting, setSubmitting] = useState(false);
@@ -89,21 +96,30 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const data = await listBookmarks({
+      const page = await listBookmarks({
         tag: filterTag.trim() || undefined,
         type: filterType || undefined,
+        sortBy,
+        sortOrder,
+        limit: PAGE_SIZE,
+        offset,
       });
-      setBookmarks(data);
+      setBookmarks(page.items);
+      setTotal(page.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, [filterTag, filterType]);
+  }, [filterTag, filterType, sortBy, sortOrder, offset]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [filterTag, filterType, sortBy, sortOrder]);
 
   const hasPendingEnrichment = bookmarks.some(
     (bookmark) => !bookmark.description,
@@ -115,17 +131,22 @@ export default function App() {
     }
     const intervalId = setInterval(async () => {
       try {
-        const data = await listBookmarks({
+        const page = await listBookmarks({
           tag: filterTag.trim() || undefined,
           type: filterType || undefined,
+          sortBy,
+          sortOrder,
+          limit: PAGE_SIZE,
+          offset,
         });
-        setBookmarks(data);
+        setBookmarks(page.items);
+        setTotal(page.total);
       } catch {
         // silent: this is a background poll, the next refresh() will surface errors
       }
     }, 5000);
     return () => clearInterval(intervalId);
-  }, [hasPendingEnrichment, filterTag, filterType]);
+  }, [hasPendingEnrichment, filterTag, filterType, sortBy, sortOrder, offset]);
 
   async function handleAddSubmit(e: FormEvent) {
     e.preventDefault();
@@ -202,7 +223,27 @@ export default function App() {
     }
   }
 
+  function toggleSort(column: BookmarkSortBy) {
+    if (sortBy === column) {
+      setSortOrder((order) => (order === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(column);
+      setSortOrder("asc");
+    }
+  }
+
+  function sortIndicator(column: BookmarkSortBy): string {
+    if (sortBy !== column) {
+      return "";
+    }
+    return sortOrder === "asc" ? " ▲" : " ▼";
+  }
+
   const addDisabled = submitting || !newBookmark.url.trim();
+  const pageStart = total === 0 ? 0 : offset + 1;
+  const pageEnd = Math.min(offset + PAGE_SIZE, total);
+  const hasPrevPage = offset > 0;
+  const hasNextPage = offset + PAGE_SIZE < total;
 
   return (
     <div className="page">
@@ -302,11 +343,15 @@ export default function App() {
         <table className="bookmarks-table">
           <thead>
             <tr>
-              <th>Name</th>
+              <th className="sortable" onClick={() => toggleSort("name")}>
+                Name{sortIndicator("name")}
+              </th>
               <th>Description</th>
               <th>Tags</th>
               <th>Type</th>
-              <th>Date added</th>
+              <th className="sortable" onClick={() => toggleSort("created_at")}>
+                Date added{sortIndicator("created_at")}
+              </th>
               <th></th>
             </tr>
           </thead>
@@ -417,6 +462,28 @@ export default function App() {
             })}
           </tbody>
         </table>
+      )}
+
+      {!loading && total > 0 && (
+        <div className="pagination">
+          <span className="pagination-status">
+            {pageStart}–{pageEnd} of {total}
+          </span>
+          <button
+            type="button"
+            disabled={!hasPrevPage}
+            onClick={() => setOffset((current) => Math.max(0, current - PAGE_SIZE))}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            disabled={!hasNextPage}
+            onClick={() => setOffset((current) => current + PAGE_SIZE)}
+          >
+            Next
+          </button>
+        </div>
       )}
     </div>
   );

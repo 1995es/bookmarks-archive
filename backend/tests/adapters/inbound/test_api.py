@@ -164,6 +164,55 @@ async def test_list(client: AsyncClient) -> None:
     assert names == {"A", "B"}
 
 
+async def test_list_defaults_to_newest_first(client: AsyncClient) -> None:
+    await client.post("/bookmarks", json=make_payload(name="First"))
+    await client.post("/bookmarks", json=make_payload(name="Second"))
+
+    resp = await client.get("/bookmarks")
+
+    assert [b["name"] for b in resp.json()] == ["Second", "First"]
+
+
+async def test_list_sort_by_name_ascending(client: AsyncClient) -> None:
+    await client.post("/bookmarks", json=make_payload(name="Banana"))
+    await client.post("/bookmarks", json=make_payload(name="Apple"))
+
+    resp = await client.get("/bookmarks", params={"sort_by": "name", "sort_order": "asc"})
+
+    assert [b["name"] for b in resp.json()] == ["Apple", "Banana"]
+
+
+async def test_list_pagination(client: AsyncClient) -> None:
+    await client.post("/bookmarks", json=make_payload(name="Apple"))
+    await client.post("/bookmarks", json=make_payload(name="Banana"))
+    await client.post("/bookmarks", json=make_payload(name="Cherry"))
+
+    resp = await client.get(
+        "/bookmarks",
+        params={"sort_by": "name", "sort_order": "asc", "limit": 1, "offset": 1},
+    )
+
+    assert resp.status_code == 200
+    assert [b["name"] for b in resp.json()] == ["Banana"]
+    assert resp.headers["X-Total-Count"] == "3"
+
+
+async def test_list_total_count_header_reflects_filters_not_pagination(
+    client: AsyncClient,
+) -> None:
+    await client.post("/bookmarks", json=make_payload(name="A", tags=["python"]))
+    await client.post("/bookmarks", json=make_payload(name="B", tags=["ruby"]))
+
+    resp = await client.get("/bookmarks", params={"tag": "python", "limit": 1})
+
+    assert resp.headers["X-Total-Count"] == "1"
+
+
+async def test_list_rejects_invalid_sort_by(client: AsyncClient) -> None:
+    resp = await client.get("/bookmarks", params={"sort_by": "url"})
+    assert resp.status_code == 422
+
+
 # --- Not found ---
 
 

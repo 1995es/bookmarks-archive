@@ -2,26 +2,42 @@
 
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
 
 from app.adapters.inbound.background import EnrichmentRunner, get_enrichment_runner
 from app.adapters.inbound.schemas import BookmarkCreate, BookmarkRead, BookmarkUpdate
 from app.adapters.outbound.sqlalchemy_repository import get_repository
 from app.application import bookmark_service
 from app.domain.models import BookmarkType
-from app.domain.ports import BookmarkRepository
+from app.domain.ports import BookmarkRepository, SortField, SortOrder
 
 router = APIRouter()
 
 
 @router.get("/bookmarks", response_model=list[BookmarkRead])
 async def list_bookmarks(
+    response: Response,
     name: str | None = None,
     tag: str | None = None,
     type: BookmarkType | None = None,
+    sort_by: SortField = "created_at",
+    sort_order: SortOrder = "desc",
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     repo: BookmarkRepository = Depends(get_repository),
 ) -> list[BookmarkRead]:
-    return await bookmark_service.list_bookmarks(repo, name=name, tag=tag, type=type)
+    total = await bookmark_service.count_bookmarks(repo, name=name, tag=tag, type=type)
+    response.headers["X-Total-Count"] = str(total)
+    return await bookmark_service.list_bookmarks(
+        repo,
+        name=name,
+        tag=tag,
+        type=type,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post("/bookmarks", response_model=BookmarkRead, status_code=201)

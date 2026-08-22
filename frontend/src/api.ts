@@ -14,7 +14,7 @@ async function parseErrorMessage(response: Response): Promise<string> {
   return response.statusText || `Request failed with status ${response.status}`;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(`${BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
@@ -28,6 +28,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(message);
   }
 
+  return response;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await requestRaw(path, init);
+
   if (response.status === 204) {
     return undefined as T;
   }
@@ -35,12 +41,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+export type BookmarkSortBy = "name" | "created_at";
+export type BookmarkSortOrder = "asc" | "desc";
+
 export interface ListBookmarksParams {
   tag?: string;
   type?: BookmarkType;
+  sortBy?: BookmarkSortBy;
+  sortOrder?: BookmarkSortOrder;
+  limit?: number;
+  offset?: number;
 }
 
-export function listBookmarks(params: ListBookmarksParams = {}): Promise<Bookmark[]> {
+export interface BookmarkPage {
+  items: Bookmark[];
+  total: number;
+}
+
+export async function listBookmarks(params: ListBookmarksParams = {}): Promise<BookmarkPage> {
   const search = new URLSearchParams();
   if (params.tag) {
     search.set("tag", params.tag);
@@ -48,8 +66,24 @@ export function listBookmarks(params: ListBookmarksParams = {}): Promise<Bookmar
   if (params.type) {
     search.set("type", params.type);
   }
+  if (params.sortBy) {
+    search.set("sort_by", params.sortBy);
+  }
+  if (params.sortOrder) {
+    search.set("sort_order", params.sortOrder);
+  }
+  if (params.limit !== undefined) {
+    search.set("limit", String(params.limit));
+  }
+  if (params.offset !== undefined) {
+    search.set("offset", String(params.offset));
+  }
   const query = search.toString();
-  return request<Bookmark[]>(`/bookmarks${query ? `?${query}` : ""}`);
+  const response = await requestRaw(`/bookmarks${query ? `?${query}` : ""}`);
+  const items = (await response.json()) as Bookmark[];
+  const totalHeader = response.headers.get("X-Total-Count");
+  const total = totalHeader !== null ? Number(totalHeader) : items.length;
+  return { items, total };
 }
 
 export function getBookmark(id: BookmarkId): Promise<Bookmark> {

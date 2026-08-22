@@ -2,8 +2,12 @@
 
 import uuid
 from abc import ABC, abstractmethod
+from typing import Literal
 
 from app.domain.models import Bookmark, BookmarkType, ExtractedData, FetchedContent
+
+SortField = Literal["name", "created_at"]
+SortOrder = Literal["asc", "desc"]
 
 
 class BookmarkRepository(ABC):
@@ -21,7 +25,23 @@ class BookmarkRepository(ABC):
         name: str | None = None,
         type: BookmarkType | None = None,
         tag: str | None = None,
+        sort_by: SortField = "created_at",
+        sort_order: SortOrder = "desc",
+        limit: int = 50,
+        offset: int = 0,
     ) -> list[Bookmark]: ...
+
+    @abstractmethod
+    async def count(
+        self,
+        *,
+        name: str | None = None,
+        type: BookmarkType | None = None,
+        tag: str | None = None,
+    ) -> int:
+        """Count of bookmarks matching the filters, ignoring limit/offset — the total
+        `list()` would paginate over."""
+        ...
 
     @abstractmethod
     async def get(self, bookmark_id: uuid.UUID) -> Bookmark | None: ...

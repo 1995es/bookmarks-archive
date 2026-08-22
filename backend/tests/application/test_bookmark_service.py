@@ -13,9 +13,14 @@ from app.domain.models import Bookmark, BookmarkType
 from tests.fakes import FakeBookmarkRepository
 from tests.repository_contract import (  # noqa: F401 - collected as tests in this module
     test_add_then_get_returns_the_bookmark,
+    test_count_excludes_soft_deleted,
+    test_count_ignores_limit_and_offset_but_respects_filters,
     test_get_returns_none_for_soft_deleted,
     test_get_returns_none_for_unknown_id,
+    test_list_defaults_to_created_at_descending,
     test_list_excludes_soft_deleted,
+    test_list_respects_limit_and_offset,
+    test_list_sorts_by_name_ascending,
     test_save_raises_not_found_when_deleted_concurrently,
 )
 

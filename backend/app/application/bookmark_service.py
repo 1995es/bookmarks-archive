@@ -4,7 +4,7 @@ import uuid
 from urllib.parse import urlparse
 
 from app.domain.models import Bookmark, BookmarkType
-from app.domain.ports import BookmarkRepository
+from app.domain.ports import BookmarkRepository, SortField, SortOrder
 
 
 def derive_name_from_url(url: str) -> str:
@@ -19,8 +19,30 @@ async def list_bookmarks(
     name: str | None = None,
     tag: str | None = None,
     type: BookmarkType | None = None,
+    sort_by: SortField = "created_at",
+    sort_order: SortOrder = "desc",
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[Bookmark]:
-    return await repo.list(name=name, type=type, tag=tag)
+    return await repo.list(
+        name=name,
+        type=type,
+        tag=tag,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        limit=limit,
+        offset=offset,
+    )
+
+
+async def count_bookmarks(
+    repo: BookmarkRepository,
+    *,
+    name: str | None = None,
+    tag: str | None = None,
+    type: BookmarkType | None = None,
+) -> int:
+    return await repo.count(name=name, type=type, tag=tag)
 
 
 async def get_bookmark(repo: BookmarkRepository, bookmark_id: uuid.UUID) -> Bookmark | None:

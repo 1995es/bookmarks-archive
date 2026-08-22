@@ -105,6 +105,28 @@ export default function App() {
     refresh();
   }, [refresh]);
 
+  const hasPendingEnrichment = bookmarks.some(
+    (bookmark) => !bookmark.description,
+  );
+
+  useEffect(() => {
+    if (!hasPendingEnrichment) {
+      return;
+    }
+    const intervalId = setInterval(async () => {
+      try {
+        const data = await listBookmarks({
+          tag: filterTag.trim() || undefined,
+          type: filterType || undefined,
+        });
+        setBookmarks(data);
+      } catch {
+        // silent: this is a background poll, the next refresh() will surface errors
+      }
+    }, 5000);
+    return () => clearInterval(intervalId);
+  }, [hasPendingEnrichment, filterTag, filterType]);
+
   async function handleAddSubmit(e: FormEvent) {
     e.preventDefault();
     const url = newBookmark.url.trim();

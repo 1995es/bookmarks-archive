@@ -5,13 +5,16 @@ type. FastAPI backend, React + Vite + TypeScript frontend, SQLite storage, Docke
 both dev and prod.
 
 After you add a bookmark it shows up immediately with whatever you typed. The backend then kicks
-off a background task that fetches the URL and asks Gemini (via litellm) to summarize it, appending
+off a background task that fetches the URL and asks an LLM (via litellm) to summarize it, appending
 the result to your description and merging in any suggested tags you didn't already have — see
 `backend/app/adapters/outbound/llm_bookmark_enricher.py`.
 
-**Before running the project**, copy `.env.example` to `.env` in the repo root and fill in
-`GEMINI_API_KEY` — this is mandatory. `docker-compose.prod.yml` refuses to start the backend
-without it; in dev, without it enrichment silently fails and bookmarks are never enriched.
+**Before running the project**, copy `.env.example` to `.env` in the repo root and fill in the API
+key matching whichever model you want (Gemini by default). Optionally set `LLM_MODEL` to any
+litellm-supported `provider/model` string (e.g. `openai/gpt-4o`, `anthropic/claude-sonnet-5`) to
+use a different provider — just set that provider's API key instead of `GEMINI_API_KEY`. The
+backend validates this at startup and refuses to boot if the configured model's key is missing, in
+both dev and prod.
 
 ## Stack
 
@@ -30,7 +33,8 @@ without it; in dev, without it enrichment silently fails and bookmarks are never
 
 ```bash
 cp .env.example .env
-# then edit .env and fill in GEMINI_API_KEY
+# then edit .env: fill in the API key for your chosen model (GEMINI_API_KEY by default),
+# and optionally set LLM_MODEL to use a different provider/model
 ```
 
 **Dev** — hot reload on both services:
@@ -79,10 +83,13 @@ output is served as static files by nginx. Both use `restart: unless-stopped`.
 cd backend
 uv sync
 GEMINI_API_KEY=... uv run uvicorn app.main:app --reload --port 8000
+# or, for a different provider:
+# LLM_MODEL=openai/gpt-4o OPENAI_API_KEY=... uv run uvicorn app.main:app --reload --port 8000
 ```
 
-The root `.env` is only read by `docker compose` (it substitutes `${GEMINI_API_KEY}` in the compose
-files); running uvicorn directly needs the variable exported in your shell instead.
+The root `.env` is only read by `docker compose` (it substitutes `${GEMINI_API_KEY}`, `${LLM_MODEL}`,
+etc. in the compose files); running uvicorn directly needs the variables exported in your shell
+instead.
 
 ### Running the frontend without Docker
 

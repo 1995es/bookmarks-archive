@@ -13,9 +13,10 @@ Docker Compose for dev and prod. Single `bookmarks` table, soft deletes, no auth
 `POST /bookmarks` schedules asynchronous enrichment (a FastAPI `BackgroundTask`) that fetches the
 bookmark's URL and derives a description/tags for it via an LLM, appending them to whatever the
 user provided. This runs after the response is returned, so the created bookmark is enriched a few
-seconds later, not immediately. The LLM call goes through litellm to Gemini and needs
-`GEMINI_API_KEY` set in the backend's environment in prod (`docker-compose.prod.yml` requires it);
-see `backend/CLAUDE.md` for the ports/adapters involved.
+seconds later, not immediately. The LLM call goes through litellm to whatever model `LLM_MODEL`
+names (default: Gemini); the backend validates at startup that the env var matching that model's
+provider (e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`) is set, and refuses to boot otherwise — see
+`backend/CLAUDE.md` for the ports/adapters involved.
 
 ## Running both services
 

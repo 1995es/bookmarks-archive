@@ -4,6 +4,7 @@ import json
 
 import litellm
 
+from app.adapters.outbound.llm_config import DEFAULT_MODEL
 from app.domain.exceptions import EnrichmentError
 from app.domain.models import ExtractedData, FetchedContent
 from app.domain.ports import BookmarkEnricherService
@@ -25,9 +26,7 @@ _SYSTEM_PROMPT = (
 
 
 class LLMBookmarkEnricherService(BookmarkEnricherService):
-    def __init__(
-        self, *, model: str = "gemini/gemini-3.5-flash", max_content_chars: int = 8000
-    ) -> None:
+    def __init__(self, *, model: str = DEFAULT_MODEL, max_content_chars: int = 8000) -> None:
         self._model = model
         self._max_content_chars = max_content_chars
 

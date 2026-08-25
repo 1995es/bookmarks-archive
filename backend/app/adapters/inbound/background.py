@@ -12,6 +12,7 @@ from collections.abc import Awaitable, Callable
 from app.adapters.outbound.database import SessionLocal
 from app.adapters.outbound.http_content_fetcher import HttpContentFetcher
 from app.adapters.outbound.llm_bookmark_enricher import LLMBookmarkEnricherService
+from app.adapters.outbound.llm_config import DEFAULT_MODEL
 from app.adapters.outbound.sqlalchemy_repository import SqlAlchemyBookmarkRepository
 from app.application.enrich_bookmark import enrich_bookmark
 from app.domain.exceptions import (
@@ -25,6 +26,11 @@ logger = logging.getLogger(__name__)
 
 EnrichmentRunner = Callable[[uuid.UUID], Awaitable[None]]
 
+# Set by main.py's lifespan at startup, once LLM_MODEL has been resolved and validated.
+# Defaults to DEFAULT_MODEL so tests that skip the lifespan (e.g. importing this module
+# directly) still get a usable value.
+llm_model: str = DEFAULT_MODEL
+
 
 async def run_enrichment(bookmark_id: uuid.UUID) -> None:
     """Composes dependencies, opens its own session, and swallows every failure.
@@ -36,7 +42,7 @@ async def run_enrichment(bookmark_id: uuid.UUID) -> None:
         async with SessionLocal() as db:
             repo = SqlAlchemyBookmarkRepository(db)
             async with HttpContentFetcher() as fetcher:
-                enricher = LLMBookmarkEnricherService()
+                enricher = LLMBookmarkEnricherService(model=llm_model)
                 await enrich_bookmark(bookmark_id, repo=repo, fetcher=fetcher, enricher=enricher)
     except (ContentFetchError, EnrichmentError, BookmarkNotFoundError, BookmarkInvalidError) as exc:
         # BookmarkNotFoundError here means the bookmark was deleted between the

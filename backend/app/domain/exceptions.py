@@ -22,3 +22,16 @@ class ContentFetchError(Exception):
 class EnrichmentError(Exception):
     """Raised by BookmarkEnricherService.extract_data() when the provider fails
     or its response can't be parsed into ExtractedData."""
+
+
+class MissingLLMCredentialsError(Exception):
+    """Raised at startup when LLM_MODEL's provider needs an API key that isn't set."""
+
+    def __init__(self, *, model: str, provider: str, env_var: str) -> None:
+        self.model = model
+        self.provider = provider
+        self.env_var = env_var
+        super().__init__(
+            f"LLM_MODEL={model!r} uses provider {provider!r}, which requires {env_var} "
+            f"to be set in the environment."
+        )

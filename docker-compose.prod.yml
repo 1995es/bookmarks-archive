@@ -7,7 +7,16 @@ services:
       - bookmarks_data:/data
     environment:
       DATABASE_URL: sqlite:////data/bookmarks.db
-      GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY is required in prod for bookmark enrichment}
+      # LLM_MODEL selects the enrichment provider (default: gemini/gemini-3.5-flash); only the
+      # matching *_API_KEY needs to be set. The backend validates this at startup and refuses to
+      # boot if the configured model's key is missing.
+      LLM_MODEL: ${LLM_MODEL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+      REPLICATE_API_KEY: ${REPLICATE_API_KEY:-}
+      TOGETHERAI_API_KEY: ${TOGETHERAI_API_KEY:-}
     ports:
       - "8000:8000"
     restart: unless-stopped

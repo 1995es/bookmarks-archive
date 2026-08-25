@@ -8,9 +8,11 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.adapters.inbound import background
 from app.adapters.inbound.api import router
 from app.adapters.outbound import orm  # noqa: F401  # registers BookmarkRow on Base.metadata
 from app.adapters.outbound.database import Base, engine
+from app.adapters.outbound.llm_config import resolve_llm_model
 from app.domain.exceptions import BookmarkInvalidError, BookmarkNotFoundError
 
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +20,10 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    # Fails fast on a bad LLM_MODEL or missing API key, rather than only surfacing it
+    # inside the first background enrichment task.
+    background.llm_model = resolve_llm_model()
+
     # create_all is sync DDL; run_sync drives it over the async engine's connection.
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

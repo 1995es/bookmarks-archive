@@ -43,7 +43,7 @@ app/
 │                    sqlalchemy_repository.py (implements BookmarkRepository),
 │                    http_content_fetcher.py (implements ContentFetcher over httpx),
 │                    llm_bookmark_enricher.py (implements BookmarkEnricherService via
-│                    litellm.acompletion against Gemini)
+│                    litellm.acompletion), llm_config.py (resolves/validates LLM_MODEL)
 └── main.py          composition root: app, CORS, exception handlers, create_all at lifespan
 ```
 
@@ -127,11 +127,21 @@ contract, not an implementation choice.
 - **Only one repo read.** A concurrent `PUT` between the task's `get()` and `save()` can be
   overwritten by the enrichment write, or vice versa. Accepted as-is — single-user, local app.
 - **`LLMBookmarkEnricherService`** (`app/adapters/outbound/llm_bookmark_enricher.py`) calls
-  `litellm.acompletion` against Gemini (`gemini/gemini-3.5-flash` by default, reading
-  `GEMINI_API_KEY` from the environment as litellm does implicitly for `gemini/` models),
-  requesting structured JSON output (`{description, tags}`) via `response_format`, truncating
-  `fetched.content` to `max_content_chars` first. Any `litellm` exception, or a response that
-  doesn't parse into that shape, is wrapped in `EnrichmentError`.
+  `litellm.acompletion` against whatever model `LLM_MODEL` resolves to (default:
+  `gemini/gemini-3.5-flash`), requesting structured JSON output (`{description, tags}`) via
+  `response_format`, truncating `fetched.content` to `max_content_chars` first. Any `litellm`
+  exception, or a response that doesn't parse into that shape, is wrapped in `EnrichmentError`.
+- **`LLM_MODEL` and its API key are resolved and validated once, at startup**, not per
+  enrichment. `app/adapters/outbound/llm_config.py::resolve_llm_model()` reads `LLM_MODEL`
+  (litellm's `provider/model` form), asks `litellm.get_llm_provider()` which provider that is,
+  and checks the matching `*_API_KEY` env var is set (own explicit map, since litellm doesn't
+  expose a "which env var does this provider need" lookup) — raising
+  `MissingLLMCredentialsError` if not. `main.py`'s `lifespan` calls this before `yield` and stores
+  the result on `background.llm_model`, a module-level var that `run_enrichment` reads when
+  constructing `LLMBookmarkEnricherService`, so a misconfigured model/key crashes the app on boot
+  instead of only failing the first background enrichment. `litellm` still reads the actual key
+  value from the environment itself when `acompletion` runs — this module only validates it's
+  present, it doesn't pass it explicitly.
 
 ## Tests
 
@@ -187,5 +197,6 @@ gets a coroutine object, not a result** — assertions on it fail in confusing w
 - `orm.py` must be imported before `create_all()` so `BookmarkRow` is registered on
   `Base.metadata`; `main.py` does this with a `# noqa: F401` import.
 - `httpx` and `litellm` are production dependencies (not `dev`) — `HttpContentFetcher` and
-  `LLMBookmarkEnricherService` need them at runtime for enrichment, not just in tests.
-  `GEMINI_API_KEY` must be set wherever the LLM enricher actually runs.
+  `LLMBookmarkEnricherService` need them at runtime for enrichment, not just in tests. Whichever
+  `*_API_KEY` matches `LLM_MODEL`'s provider must be set wherever the backend actually runs; see
+  "Background enrichment" above for how that's validated at startup.

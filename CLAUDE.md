@@ -2,8 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Two sub-projects have their own guidance — read the relevant one before changing code there:
-`backend/CLAUDE.md` and `frontend/CLAUDE.md`.
+`ARCHITECTURE.md` is the high-level map of how the system fits together, linking to
+`backend/ARCHITECTURE.md` and `frontend/ARCHITECTURE.md`. Two sub-projects also have their own
+agent guidance — read the relevant one before changing code there: `backend/CLAUDE.md` and
+`frontend/CLAUDE.md`.
 
 ## What this is
 
@@ -43,13 +45,26 @@ There is no shared schema or codegen. `frontend/src/types.ts` is a hand-maintain
 `backend/app/adapters/inbound/schemas.py`. **Any change to the Pydantic schemas must be mirrored
 there by hand** — nothing will fail at build time if you forget.
 
+`GET /bookmarks` is the one route whose contract isn't fully in the body: it returns a bare array
+and puts the unpaginated total in an `X-Total-Count` header, which `api.ts` reassembles into a
+`BookmarkPage`. A new list filter has to land in `repo.list()`, `repo.count()`, the route, and the
+frontend's `ListBookmarksParams`.
+
 One gap remains: `GET /bookmarks` accepts a `name` substring filter that the frontend never sends.
 
 ## Docs
 
-`README.md` is the user-facing doc and is current as of the UUID/`json_each`/layered-tests state
-of the code. An earlier `project.md` design doc described a pre-hexagonal layout and has been
-folded into `README.md` and these files; don't recreate it.
+`README.md` is the user-facing doc: what the project does and how to run it. It deliberately does
+*not* document the API surface, data model, or layer-by-layer architecture — that lives in
+`ARCHITECTURE.md`, which stays high-level and links out to `backend/ARCHITECTURE.md` and
+`frontend/ARCHITECTURE.md` for detail. Don't grow the README back into a reference doc.
+
+The `ARCHITECTURE.md` files are for humans reading the project; the `CLAUDE.md` files are agent
+instructions. Never link a reader-facing doc at a `CLAUDE.md`. They overlap in subject matter, so
+a change to how the code is structured usually needs both updated.
+
+An earlier `project.md` design doc described a pre-hexagonal layout and has been folded into these
+files; don't recreate it.
 
 When docs conflict with the code, the code wins — but prefer updating the doc over leaving new
 drift behind, since nothing here is generated.

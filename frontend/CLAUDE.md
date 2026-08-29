@@ -23,8 +23,9 @@ break the build, not just the editor.
 
 Four files under `src/`, and that's intended to stay small:
 
-- `App.tsx` — the entire UI as one component: table view, inline add form, inline row editing,
-  delete with `window.confirm`, and tag/type filters.
+- `App.tsx` — the entire UI as one component: table view, inline add form with a bulk-URL mode,
+  inline row editing, delete with `window.confirm`, tag/type filters, sort controls, and
+  pagination.
 - `api.ts` — `fetch` wrappers. No data-fetching library.
 - `types.ts` — hand-written mirror of the backend's Pydantic schemas.
 - `index.css` — plain CSS, no framework. Notion-style: quiet borders, generous whitespace.
@@ -34,15 +35,41 @@ justify one.
 
 ## How data flows
 
-`App.tsx` owns all state. `refresh()` is a `useCallback` keyed on `filterTag` and `filterType`, and
-a `useEffect` calls it whenever that identity changes — so **filtering is server-side**: changing a
-filter re-queries `GET /bookmarks?tag=&type=`, it does not filter the loaded array. Every mutation
-(`create`/`update`/`delete`) is followed by `await refresh()` rather than optimistic local updates.
+`App.tsx` owns all state. `refresh()` is a `useCallback` keyed on `filterTag`, `filterType`,
+`sortBy`, `sortOrder` and `offset`, and a `useEffect` calls it whenever that identity changes — so
+**filtering, sorting and pagination are all server-side**: changing any of them re-queries
+`GET /bookmarks`, it does not reorder or slice the loaded array. **Anything new that affects the
+query must go in that dependency list**, or `refresh()` keeps its old identity, the effect never
+re-runs, and the control renders as changed while the table still shows the previous query. A separate
+`useEffect` resets `offset` to 0 whenever a filter or sort changes.
+
+Every mutation (`create`/`update`/`delete`) is followed by `await refresh()` rather than optimistic
+local updates.
+
+Three behaviors are easy to break by accident:
+
+- **Out-of-order responses are guarded by a monotonic `requestSeq` ref.** Each request takes a
+  sequence number on the way out; a response whose number is stale is dropped instead of rendered,
+  including in the `catch` and `finally` branches (a stale failure must not clear a fresh
+  `loading`). Any new request path that writes to `bookmarks`/`total` needs the same guard.
+- **Enrichment is polled, not pushed.** `hasPendingEnrichment` is `bookmarks.some(b => !b.description)`;
+  while true, a 5s `setInterval` re-fetches the current page and the effect tears it down once
+  every row has a description. That poll deliberately swallows its errors — it must not clobber the
+  error banner with a transient failure the user didn't cause.
+- **Bulk add loops `POST /bookmarks` client-side.** There is no bulk endpoint and shouldn't be one.
+  `Promise.allSettled` over the parsed URLs, then the failures (usually `409` duplicates) are
+  listed with their messages and written back into the textarea so a resubmit retries only those.
 
 `api.ts` centralizes error handling in `request<T>()`: non-2xx responses are unwrapped from
 FastAPI's `{"detail": "..."}` shape and thrown as an `Error`; 204 returns `undefined`. Handlers in
 `App.tsx` catch and set the `error` banner. New endpoints should go through `request<T>()` rather
 than calling `fetch` directly.
+
+`listBookmarks()` is the one exception: it uses `requestRaw()` because it needs the response
+headers. `GET /bookmarks` returns a bare array plus the unpaginated total in `X-Total-Count`, and
+`listBookmarks()` recombines them into a `BookmarkPage` (`{ items, total }`), falling back to
+`items.length` when the header is absent. Keep that assembly in `api.ts` — `App.tsx` should never
+see the header.
 
 ## API base URL
 
@@ -62,4 +89,6 @@ so the client can't accidentally treat them as numbers or arithmetic. Use that a
 holding an id. They're opaque here — never parse, sort, or generate one client-side.
 
 One known gap: `GET /bookmarks` supports a `name` substring filter that this app never sends.
-Adding a search box means extending `ListBookmarksParams` and the `refresh()` dependency list.
+`ListBookmarksParams` covers `tag`, `type`, `sortBy`, `sortOrder`, `limit` and `offset` but not
+`name`. Adding a search box means extending that interface, threading it through `refresh()`, and
+adding it to the `useCallback` dependency list.

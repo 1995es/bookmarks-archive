@@ -13,7 +13,7 @@ enrichment after `POST /bookmarks`. See the repo-root `CLAUDE.md` for cross-cutt
 ```bash
 uv sync                                            # install deps (incl. dev group)
 uv run uvicorn app.main:app --reload --port 8000   # run locally
-uv run pytest                                      # full suite (78 tests, <1s)
+uv run pytest                                      # full suite (fast — a couple of seconds)
 uv run pytest tests/domain/test_models.py          # one file
 uv run pytest -k tag_filter                        # one test by name substring
 uv run ruff check . && uv run ruff format --check . # lint + format check
@@ -31,11 +31,12 @@ this project's other layers and no frameworks at all.
 
 ```
 app/
-├── domain/          models.py (Bookmark dataclass, BookmarkType, ExtractedData), ports.py
-│                    (BookmarkRepository, ContentFetcher, BookmarkEnricherService — all
-│                    Protocol), exceptions.py
-├── application/     bookmark_service.py, enrich_bookmark.py — use cases, module-level
-│                    functions taking a repo (+ fetcher/enricher for enrichment)
+├── domain/          models.py (Bookmark dataclass, BookmarkType, FetchedContent,
+│                    ExtractedData), ports.py (BookmarkRepository, ContentFetcher,
+│                    BookmarkEnricherService — all ABC with @abstractmethod), exceptions.py
+├── application/     bookmark_service.py (list/count/get/create/update/delete),
+│                    enrich_bookmark.py — use cases, module-level functions taking a repo
+│                    (+ fetcher/enricher for enrichment)
 ├── adapters/
 │   ├── inbound/     api.py (FastAPI routes), schemas.py (Pydantic DTOs), background.py
 │   │                (BackgroundTask edge that runs enrich_bookmark after POST)
@@ -65,6 +66,26 @@ Rules that keep this working, in rough order of how easy they are to break:
 - **`_MAX_TAGS`/`_MAX_TAG_LENGTH` live in `domain/models.py`, not `schemas.py`.** `schemas.py`
   imports them. The domain needs its own copy of the limit because `enrich()` runs outside any
   HTTP request — the LLM-generated tags never pass through Pydantic validation.
+
+### Listing: filters, sorting, pagination
+
+`repo.list()` and `bookmark_service.list_bookmarks()` take `name`/`type`/`tag` filters plus
+`sort_by` (`name` | `created_at`, default `created_at`), `sort_order` (default `desc`), `limit`
+(default 50, the route caps it at 1–200) and `offset`. `repo.count()` takes the same filters and
+**ignores limit/offset** — it is the total the page is a window into.
+
+`GET /bookmarks` calls both: the body is the page, and the count goes out in an `X-Total-Count`
+response header. Adding a filter therefore means adding it in three places — `list()`, `count()`,
+and the route — or the total will disagree with the page. `SortField`/`SortOrder` are `Literal`
+aliases in `domain/ports.py`; a new sort field needs the alias, `_SORT_COLUMNS` in the real
+adapter, and the fake's sort key.
+
+**Known divergence: `sort_by="name"` is case-sensitive in the real adapter and case-insensitive in
+the fake.** SQLite's default BINARY collation puts `Banana` before `apple`; `FakeBookmarkRepository`
+sorts on `name.lower()` and puts `apple` first. `tests/repository_contract.py` only sorts same-case
+names, so nothing catches it. Fixing it means either a `collate("NOCASE")` in the real adapter or
+dropping `.lower()` from the fake — pick one, then add a mixed-case sort test to the contract so
+they can't drift again.
 
 ### Validation happens in two places, deliberately
 
@@ -172,8 +193,9 @@ re-implementing the assertions.
 `tests/application/test_bookmark_service.py` and `tests/application/test_enrich_bookmark.py` run
 against an in-memory `FakeBookmarkRepository` (defined once in `tests/fakes.py`) — no database, no
 FastAPI. That fake also satisfies the contract, so it must stay in sync with the real adapter's
-filtering behavior (`name` is a case-insensitive substring match; `tag` is an **exact** match
-against one entry in the list, not a substring) — and its `save()` raises `BookmarkNotFoundError`
+filtering, sorting and pagination behavior (`name` is a case-insensitive substring match; `tag` is
+an **exact** match against one entry in the list, not a substring; sorting by name currently
+diverges on case — see "Listing" above) — and its `save()` raises `BookmarkNotFoundError`
 for an untracked id, matching `SqlAlchemyBookmarkRepository.save()`, so the enrichment
 concurrent-delete race is testable without a database.
 

@@ -13,7 +13,7 @@ _RESPONSE_SCHEMA = {
     "type": "object",
     "properties": {
         "description": {"type": "string"},
-        "tags": {"type": "array", "items": {"type": "string"}},
+        "tags": {"type": "array", "items": {"type": "string"}, "maxItems": 4},
     },
     "required": ["description", "tags"],
 }
@@ -21,7 +21,12 @@ _RESPONSE_SCHEMA = {
 _SYSTEM_PROMPT = (
     "You derive a short description and a list of tags for a bookmark, given its "
     "URL, the page's own title, the meta description, and the text content fetched "
-    "from that URL. Respond with a concise description and relevant tags."
+    "from that URL. Respond with a concise description and relevant tags. "
+    "Return at most 4 tags. Each tag must name a broad, high-level concept or topic "
+    "(e.g. 'machine-learning', 'finance', 'web-development') rather than a narrow or "
+    "specific detail. Prefer fewer tags over adding niche ones. "
+    "Use short, common forms for well-known concepts — for example use 'ai' rather "
+    "than 'artificial-intelligence'."
 )
 
 

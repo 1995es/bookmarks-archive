@@ -3,7 +3,7 @@
 import copy
 import uuid
 
-from app.domain.exceptions import BookmarkNotFoundError
+from app.domain.exceptions import BookmarkNotFoundError, BookmarkUrlConflictError
 from app.domain.models import Bookmark, BookmarkType
 from app.domain.ports import BookmarkRepository, SortField, SortOrder
 
@@ -69,7 +69,17 @@ class FakeBookmarkRepository(BookmarkRepository):
             return None
         return copy.deepcopy(bookmark)
 
+    def _url_taken_by_other_live(self, bookmark: Bookmark) -> bool:
+        # Mirrors the partial unique index on BookmarkRow.url: a url is taken only
+        # if another *live* bookmark holds it. Reusing a soft-deleted url is allowed.
+        return any(
+            b.id != bookmark.id and not b.is_deleted and b.url == bookmark.url
+            for b in self._rows.values()
+        )
+
     async def add(self, bookmark: Bookmark) -> Bookmark:
+        if self._url_taken_by_other_live(bookmark):
+            raise BookmarkUrlConflictError(bookmark.url)
         self._rows[bookmark.id] = bookmark
         return bookmark
 
@@ -82,5 +92,7 @@ class FakeBookmarkRepository(BookmarkRepository):
             # SqlAlchemyBookmarkRepository.save() so the race is testable
             # without a database.
             raise BookmarkNotFoundError(bookmark.id)
+        if not bookmark.is_deleted and self._url_taken_by_other_live(bookmark):
+            raise BookmarkUrlConflictError(bookmark.url)
         self._rows[bookmark.id] = bookmark
         return bookmark

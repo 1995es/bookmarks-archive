@@ -105,7 +105,9 @@ def make_real_enrichment_runner(
 def make_payload(**overrides: object) -> dict:
     payload = {
         "name": "Some article",
-        "url": "https://example.com",
+        # Unique by default so multi-bookmark tests don't hit the 409 url-uniqueness
+        # response; pass url= explicitly when the url itself is under test.
+        "url": f"https://{uuid.uuid4().hex}.example.com",
         "description": "an article",
         "tags": ["python", "web"],
         "type": "post",
@@ -118,7 +120,8 @@ def make_payload(**overrides: object) -> dict:
 
 
 async def test_create_returns_201_with_id_and_created_at(client: AsyncClient) -> None:
-    resp = await client.post("/bookmarks", json=make_payload())
+    payload = make_payload(url="https://example.com")
+    resp = await client.post("/bookmarks", json=payload)
     assert resp.status_code == 201
     body = resp.json()
     assert "id" in body
@@ -232,6 +235,34 @@ async def test_delete_unknown_id_404(client: AsyncClient) -> None:
     assert resp.status_code == 404
 
 
+# --- URL uniqueness ---
+
+
+async def test_create_duplicate_url_returns_409(client: AsyncClient) -> None:
+    first = await client.post("/bookmarks", json=make_payload(url="https://dup.com"))
+    assert first.status_code == 201
+
+    resp = await client.post("/bookmarks", json=make_payload(url="https://dup.com"))
+    assert resp.status_code == 409
+    assert "https://dup.com" in resp.json()["detail"]
+
+
+async def test_put_to_existing_url_returns_409(client: AsyncClient) -> None:
+    await client.post("/bookmarks", json=make_payload(url="https://taken.com"))
+    other = (await client.post("/bookmarks", json=make_payload(url="https://free.com"))).json()
+
+    resp = await client.put(f"/bookmarks/{other['id']}", json=make_payload(url="https://taken.com"))
+    assert resp.status_code == 409
+
+
+async def test_create_reuses_url_of_deleted_bookmark(client: AsyncClient) -> None:
+    created = (await client.post("/bookmarks", json=make_payload(url="https://reuse.com"))).json()
+    assert (await client.delete(f"/bookmarks/{created['id']}")).status_code == 204
+
+    resp = await client.post("/bookmarks", json=make_payload(url="https://reuse.com"))
+    assert resp.status_code == 201
+
+
 # --- Soft delete ---
 
 
@@ -318,7 +349,7 @@ async def test_create_with_only_url_derives_name_and_defaults_type(client: Async
 
 
 async def test_create_with_blank_name_derives_name_from_url(client: AsyncClient) -> None:
-    resp = await client.post("/bookmarks", json=make_payload(name="   "))
+    resp = await client.post("/bookmarks", json=make_payload(name="   ", url="https://example.com"))
     assert resp.status_code == 201
     assert resp.json()["name"] == "example.com"
 

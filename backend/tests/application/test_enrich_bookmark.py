@@ -69,7 +69,11 @@ def repo() -> FakeBookmarkRepository:
 
 async def _create(repo: FakeBookmarkRepository, **overrides: object):
     defaults = dict(
-        name="A", url="https://a.com", description=None, tags=[], type=BookmarkType.POST
+        name="A",
+        url=f"https://{uuid.uuid4().hex}.com",
+        description=None,
+        tags=[],
+        type=BookmarkType.POST,
     )
     defaults.update(overrides)
     return await bookmark_service.create_bookmark(repo, **defaults)

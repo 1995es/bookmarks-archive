@@ -13,7 +13,11 @@ from app.adapters.inbound.api import router
 from app.adapters.outbound import orm  # noqa: F401  # registers BookmarkRow on Base.metadata
 from app.adapters.outbound.database import Base, engine
 from app.adapters.outbound.llm_config import resolve_llm_model
-from app.domain.exceptions import BookmarkInvalidError, BookmarkNotFoundError
+from app.domain.exceptions import (
+    BookmarkInvalidError,
+    BookmarkNotFoundError,
+    BookmarkUrlConflictError,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -47,6 +51,16 @@ async def bookmark_not_found_handler(request: Request, exc: BookmarkNotFoundErro
     """Only reachable via a get-then-save race (e.g. concurrent deletes); everyday
     404s are handled by the service layer's None-returning lookups instead."""
     return JSONResponse(status_code=404, content={"detail": "Bookmark not found"})
+
+
+@app.exception_handler(BookmarkUrlConflictError)
+async def bookmark_url_conflict_handler(
+    request: Request, exc: BookmarkUrlConflictError
+) -> JSONResponse:
+    """A url that already belongs to a live bookmark is a 409 Conflict, not a
+    validation error: the request is well-formed, it just collides with existing
+    state. Raised by the repository (add/save) via the port's uniqueness contract."""
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 @app.exception_handler(BookmarkInvalidError)

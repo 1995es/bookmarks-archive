@@ -15,6 +15,16 @@ class BookmarkInvalidError(ValueError):
     """Raised by Bookmark.validate() when a domain invariant is violated."""
 
 
+class BookmarkUrlConflictError(Exception):
+    """Raised by BookmarkRepository.add()/save() when another live (non-deleted)
+    bookmark already has the same url. A soft-deleted bookmark's url is free to
+    reuse, so this only fires against bookmarks visible to get()/list()."""
+
+    def __init__(self, url: str) -> None:
+        self.url = url
+        super().__init__(f"A bookmark with url {url!r} already exists")
+
+
 class ContentFetchError(Exception):
     """Raised by ContentFetcher.fetch() on a network failure or non-2xx status."""
 

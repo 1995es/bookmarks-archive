@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.domain.exceptions import BookmarkNotFoundError
+from app.domain.exceptions import BookmarkNotFoundError, BookmarkUrlConflictError
 from app.domain.models import Bookmark, BookmarkType
 
 
@@ -22,7 +22,9 @@ def make_bookmark(**overrides: object) -> Bookmark:
     defaults: dict[str, object] = dict(
         id=uuid.uuid7(),
         name="A",
-        url="https://a.com",
+        # Unique by default so tests that add several bookmarks don't trip the
+        # url-uniqueness contract; pass url= explicitly when it's under test.
+        url=f"https://{uuid.uuid4().hex}.com",
         description=None,
         tags=[],
         type=BookmarkType.POST,
@@ -106,6 +108,39 @@ async def test_count_excludes_soft_deleted(repo) -> None:
 
     assert await repo.count() == 1
     assert kept.name == "Kept"
+
+
+async def test_add_rejects_duplicate_live_url(repo) -> None:
+    await repo.add(make_bookmark(url="https://dup.com"))
+
+    with pytest.raises(BookmarkUrlConflictError):
+        await repo.add(make_bookmark(url="https://dup.com"))
+
+
+async def test_add_allows_reusing_a_soft_deleted_url(repo) -> None:
+    first = await repo.add(make_bookmark(url="https://reuse.com"))
+    first.delete()
+    await repo.save(first)
+
+    revived = await repo.add(make_bookmark(url="https://reuse.com"))
+
+    assert revived.url == "https://reuse.com"
+    assert await repo.get(revived.id) is not None
+
+
+async def test_save_rejects_updating_url_to_another_live_url(repo) -> None:
+    await repo.add(make_bookmark(url="https://taken.com"))
+    other = await repo.add(make_bookmark(url="https://free.com"))
+    other.update(
+        name=other.name,
+        url="https://taken.com",
+        description=None,
+        tags=[],
+        type=BookmarkType.POST,
+    )
+
+    with pytest.raises(BookmarkUrlConflictError):
+        await repo.save(other)
 
 
 async def test_save_raises_not_found_when_deleted_concurrently(repo) -> None:

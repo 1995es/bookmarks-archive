@@ -4,11 +4,12 @@ import uuid
 
 from fastapi import Depends
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.adapters.outbound.database import get_db
 from app.adapters.outbound.orm import BookmarkRow
-from app.domain.exceptions import BookmarkNotFoundError
+from app.domain.exceptions import BookmarkNotFoundError, BookmarkUrlConflictError
 from app.domain.models import Bookmark, BookmarkType
 from app.domain.ports import BookmarkRepository, SortField, SortOrder
 
@@ -94,11 +95,24 @@ class SqlAlchemyBookmarkRepository(BookmarkRepository):
         row = (await self._db.execute(stmt)).scalars().first()
         return _to_domain(row) if row is not None else None
 
+    async def _commit(self, url: str) -> None:
+        """Commit, translating a url-uniqueness violation into a domain exception.
+
+        The only unique constraint on the table besides the (uuid7) primary key is
+        the partial index on url, so an IntegrityError here means a duplicate live
+        url — surfaced as BookmarkUrlConflictError for main.py to map to 409.
+        """
+        try:
+            await self._db.commit()
+        except IntegrityError as exc:
+            await self._db.rollback()
+            raise BookmarkUrlConflictError(url) from exc
+
     async def add(self, bookmark: Bookmark) -> Bookmark:
         row = BookmarkRow()
         _copy_into_row(bookmark, row)
         self._db.add(row)
-        await self._db.commit()
+        await self._commit(bookmark.url)
         await self._db.refresh(row)
         return _to_domain(row)
 
@@ -112,7 +126,7 @@ class SqlAlchemyBookmarkRepository(BookmarkRepository):
             # rather than silently resurrecting it.
             raise BookmarkNotFoundError(bookmark.id)
         _copy_into_row(bookmark, row)
-        await self._db.commit()
+        await self._commit(bookmark.url)
         await self._db.refresh(row)
         return _to_domain(row)
 

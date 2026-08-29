@@ -12,6 +12,8 @@ from app.application import bookmark_service
 from app.domain.models import Bookmark, BookmarkType
 from tests.fakes import FakeBookmarkRepository
 from tests.repository_contract import (  # noqa: F401 - collected as tests in this module
+    test_add_allows_reusing_a_soft_deleted_url,
+    test_add_rejects_duplicate_live_url,
     test_add_then_get_returns_the_bookmark,
     test_count_excludes_soft_deleted,
     test_count_ignores_limit_and_offset_but_respects_filters,
@@ -22,6 +24,7 @@ from tests.repository_contract import (  # noqa: F401 - collected as tests in th
     test_list_respects_limit_and_offset,
     test_list_sorts_by_name_ascending,
     test_save_raises_not_found_when_deleted_concurrently,
+    test_save_rejects_updating_url_to_another_live_url,
 )
 
 
@@ -32,7 +35,11 @@ def repo() -> FakeBookmarkRepository:
 
 async def _create(repo: FakeBookmarkRepository, **overrides: object) -> Bookmark:
     defaults = dict(
-        name="A", url="https://a.com", description=None, tags=[], type=BookmarkType.POST
+        name="A",
+        url=f"https://{uuid.uuid4().hex}.com",
+        description=None,
+        tags=[],
+        type=BookmarkType.POST,
     )
     defaults.update(overrides)
     return await bookmark_service.create_bookmark(repo, **defaults)

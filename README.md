@@ -106,9 +106,9 @@ Set `VITE_API_URL` if the backend isn't at `http://localhost:8000`.
 | Method | Path | Query params | Notes |
 |--------|------|---------------|-------|
 | `GET` | `/bookmarks` | `name`, `tag`, `type` | Lists active (non-deleted) bookmarks. All filters are optional and combine with AND. |
-| `POST` | `/bookmarks` | — | Creates a bookmark, `201`. |
+| `POST` | `/bookmarks` | — | Creates a bookmark, `201`. `409` if the `url` already belongs to a live (non-deleted) bookmark. |
 | `GET` | `/bookmarks/{id}` | — | `404` if missing or soft-deleted. |
-| `PUT` | `/bookmarks/{id}` | — | Full replace of the mutable fields. `id`/`created_at` are server-controlled. |
+| `PUT` | `/bookmarks/{id}` | — | Full replace of the mutable fields. `id`/`created_at` are server-controlled. `409` if `url` collides with another live bookmark. |
 | `DELETE` | `/bookmarks/{id}` | — | Soft delete — sets `deleted_at`, `204`, no body. |
 
 `type` is one of `post`, `video`, `tweet`, `site`. Errors use FastAPI's default shape,
@@ -129,7 +129,7 @@ Single table, `bookmarks`:
 |--------|------|-------|
 | `id` | UUID | primary key, generated server-side with `uuid7` (time-ordered) |
 | `name` | string | required |
-| `url` | string | required |
+| `url` | string | required; unique among live (non-deleted) bookmarks |
 | `description` | string | optional |
 | `created_at` | timestamp | set at creation |
 | `tags` | JSON array of strings | one column, not a join table |
@@ -141,8 +141,13 @@ than a separate join table — the simplest option that still models tags as a r
 cost of needing a JSON query to filter by one instead of a SQL join. `type` is a Python `Enum`,
 enforced by Pydantic on the way in and stored as its string value.
 
+`url` is unique among live bookmarks, enforced by a SQLite *partial* unique index
+(`WHERE deleted_at IS NULL`) so that soft-deleting a bookmark frees its URL to be added again.
+A create or update that collides with an existing live bookmark's URL returns `409 Conflict`.
+
 No migrations tool — `Base.metadata.create_all()` runs once at startup and only ever creates
-missing tables; it will not alter an existing one. Changing a column today means deleting the
+missing tables; it will not alter an existing one, nor add a new index (such as the URL-uniqueness
+index) to a table that already exists. Changing a column or adding an index today means deleting the
 database file or volume. If the schema starts evolving, that's the point to introduce Alembic —
 noted here so it reads as a deliberate decision rather than an oversight.
 

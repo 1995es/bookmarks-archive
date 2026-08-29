@@ -16,6 +16,11 @@ class BookmarkRepository(ABC):
     Implementations must hide soft-deleted bookmarks (Bookmark.is_deleted) from
     list() and get() — see tests/repository_contract.py, which every adapter's
     test suite must run to prove it honors this.
+
+    A bookmark's url is unique among live (non-deleted) bookmarks: add() and
+    save() raise BookmarkUrlConflictError if another visible bookmark already
+    holds the url. A soft-deleted bookmark's url is free to reuse. This too is
+    part of the contract every adapter's test suite proves.
     """
 
     @abstractmethod
@@ -47,11 +52,14 @@ class BookmarkRepository(ABC):
     async def get(self, bookmark_id: uuid.UUID) -> Bookmark | None: ...
 
     @abstractmethod
-    async def add(self, bookmark: Bookmark) -> Bookmark: ...
+    async def add(self, bookmark: Bookmark) -> Bookmark:
+        """Raises BookmarkUrlConflictError if another live bookmark has this url."""
+        ...
 
     @abstractmethod
     async def save(self, bookmark: Bookmark) -> Bookmark:
-        """Raises BookmarkNotFoundError if the bookmark no longer exists."""
+        """Raises BookmarkNotFoundError if the bookmark no longer exists, or
+        BookmarkUrlConflictError if another live bookmark has this url."""
         ...
 
 

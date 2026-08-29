@@ -96,6 +96,20 @@ bookmark already has real values, so `PUT` keeps the stricter `BookmarkBase` con
 required to hide soft-deleted bookmarks from both `list()` and `get()` — this is part of the port's
 contract, not an implementation choice.
 
+### URL uniqueness
+
+`url` is unique **among live (non-deleted) bookmarks** — also part of the port's contract, proven
+by `tests/repository_contract.py` against both the real adapter and the fake. `add()` and `save()`
+raise `BookmarkUrlConflictError` when another visible bookmark holds the url; `main.py` maps that
+to `409`. A soft-deleted bookmark keeps its row (and url) forever, so a plain `UNIQUE(url)` would
+wrongly block re-adding a url the user already deleted — the constraint is therefore a **SQLite
+partial unique index** (`uq_bookmarks_url_active` in `orm.py`, `sqlite_where="deleted_at IS NULL"`),
+same dialect coupling as the `json_each` tag filter. The real adapter enforces it in the database
+and translates `IntegrityError` (the only unique constraint besides the uuid7 PK) into the domain
+exception; the fake mirrors the *live-only* rule in memory so it stays a faithful contract stand-in.
+The real adapter relies on the DB index as the authority rather than a pre-read `SELECT`, so
+there's no check-then-insert race.
+
 ### Background enrichment
 
 `POST /bookmarks` schedules a `BackgroundTask` (`background.py::run_enrichment`) that runs
@@ -186,9 +200,11 @@ gets a coroutine object, not a result** — assertions on it fail in confusing w
   reject the sync pysqlite dialect. `check_same_thread` is only passed for `sqlite://` URLs — other
   dialects reject it.
 - No migrations tool. `create_all` runs at startup via `conn.run_sync()` (it is sync DDL) and only
-  creates missing tables; it will not alter an existing one. **Changing a column means deleting the dev database file (or
-  the Docker volume) — or introducing Alembic, which is the right move if the schema starts
-  evolving.**
+  creates missing tables; it will not alter an existing one — and, importantly, **it will not add a
+  new index (like `uq_bookmarks_url_active`) to a table that already exists.** A database created
+  before the url-uniqueness index was added therefore won't get the constraint until it's recreated.
+  **Changing a column or adding an index means deleting the dev database file (or the Docker volume)
+  — or introducing Alembic, which is the right move if the schema starts evolving.**
 - `tags` is a JSON array in one column, not a join table — chosen as the simplest thing that still
   models tags as a real list, accepting a JSON query instead of a SQL join as the cost. Tag
   filtering therefore uses SQLite's `json_each` table-valued function for an exact match on a list

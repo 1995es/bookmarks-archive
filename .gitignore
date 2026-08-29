@@ -26,3 +26,5 @@ backend/background-task-plan.md
 
 # Visual Studio Code
 .vscode/
+# Claude Code local settings
+.claude/

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   createBookmark,
@@ -120,7 +120,12 @@ export default function App() {
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Monotonic counter guarding against out-of-order responses: a slow earlier
+  // request must not overwrite the list rendered by a later one.
+  const requestSeq = useRef(0);
+
   const refresh = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
     try {
@@ -132,12 +137,20 @@ export default function App() {
         limit: PAGE_SIZE,
         offset,
       });
+      if (seq !== requestSeq.current) {
+        return;
+      }
       setBookmarks(page.items);
       setTotal(page.total);
     } catch (err) {
+      if (seq !== requestSeq.current) {
+        return;
+      }
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) {
+        setLoading(false);
+      }
     }
   }, [filterTag, filterType, sortBy, sortOrder, offset]);
 
@@ -158,6 +171,7 @@ export default function App() {
       return;
     }
     const intervalId = setInterval(async () => {
+      const seq = ++requestSeq.current;
       try {
         const page = await listBookmarks({
           tag: filterTag.trim() || undefined,
@@ -167,6 +181,9 @@ export default function App() {
           limit: PAGE_SIZE,
           offset,
         });
+        if (seq !== requestSeq.current) {
+          return;
+        }
         setBookmarks(page.items);
         setTotal(page.total);
       } catch {

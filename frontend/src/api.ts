@@ -16,11 +16,11 @@ async function parseErrorMessage(response: Response): Promise<string> {
 
 async function requestRaw(path: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(`${BASE_URL}${path}`, {
+    ...init,
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
-    ...init,
   });
 
   if (!response.ok) {

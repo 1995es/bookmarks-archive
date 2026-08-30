@@ -109,3 +109,9 @@ export function deleteBookmark(id: BookmarkId): Promise<void> {
     method: "DELETE",
   });
 }
+
+export function retryEnrichment(id: BookmarkId): Promise<Bookmark> {
+  return request<Bookmark>(`/bookmarks/${id}/retry-enrichment`, {
+    method: "POST",
+  });
+}

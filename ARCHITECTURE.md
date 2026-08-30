@@ -116,8 +116,9 @@ Two consequences of that shape are worth knowing up front:
   case-insensitive substring match, since it backs a search box.
 
 There is no migrations tool: `create_all()` at startup creates missing tables and nothing else — it
-will not alter an existing table or add an index to one. Changing the schema today means deleting
-the database file or volume. If the schema starts evolving, that's the point to introduce Alembic.
+will not alter an existing table or add an index to one. A hand-rolled step after it adds columns
+the ORM has gained since a database was created; every other schema change still means deleting the
+database file or volume. See `backend/ARCHITECTURE.md` for what that covers.
 
 ## Deployment topology
 

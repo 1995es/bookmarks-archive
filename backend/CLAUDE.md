@@ -41,11 +41,13 @@ app/
 │   ├── inbound/     api.py (FastAPI routes), schemas.py (Pydantic DTOs), background.py
 │   │                (BackgroundTask edge that runs enrich_bookmark after POST)
 │   └── outbound/    database.py (engine/session), orm.py (BookmarkRow),
+│                    migrations.py (idempotent ALTER TABLE steps, run after create_all),
 │                    sqlalchemy_repository.py (implements BookmarkRepository),
 │                    http_content_fetcher.py (implements ContentFetcher over httpx),
 │                    llm_bookmark_enricher.py (implements BookmarkEnricherService via
 │                    litellm.acompletion), llm_config.py (resolves/validates LLM_MODEL)
-└── main.py          composition root: app, CORS, exception handlers, create_all at lifespan
+└── main.py          composition root: app, CORS, exception handlers, create_all +
+                     run_migrations at lifespan
 ```
 
 Rules that keep this working, in rough order of how easy they are to break:
@@ -164,9 +166,13 @@ there's no check-then-insert race.
   `failed` once retries are exhausted. The frontend's poll (see `frontend/CLAUDE.md`) stops on
   either terminal state — this is what fixes the pre-existing bug where a permanently-failed
   enrichment (network down, LLM error, an exceeded free-tier rate limit) left the frontend polling
-  `GET /bookmarks` every 5s forever, since `!description` never became true. There is currently no
-  way to move a `failed` bookmark back to `pending` — a manual retry (per-bookmark or bulk) is a
-  deliberately deferred follow-up, not yet implemented.
+  `GET /bookmarks` every 5s forever, since `!description` never became true.
+- **`POST /bookmarks/{id}/retry-enrichment` is the manual retry path**, per-bookmark only (no bulk
+  retry). `bookmark_service.retry_enrichment()` requires the bookmark's `enrichment_status` to be
+  `FAILED` — anything else raises `BookmarkEnrichmentNotFailedError`, mapped to `409` in `main.py`
+  the same way `BookmarkUrlConflictError` is — then calls `Bookmark.mark_enrichment_pending()` and
+  `repo.save()`. The route reschedules the same `BackgroundTasks` enrichment as `POST /bookmarks`
+  does, so a retried bookmark goes through `run_enrichment` (backoff, five attempts) again.
 - **`ContentFetchError`/`EnrichmentError` are retried with backoff before being treated as a
   failure**, via `tenacity`: `background.py::enrich_bookmark_with_retry` wraps `enrich_bookmark()`
   with `stop_after_attempt(5)` and `wait_exponential(multiplier=1, min=1, max=30)`, and
@@ -246,8 +252,15 @@ gets a coroutine object, not a result** — assertions on it fail in confusing w
   creates missing tables; it will not alter an existing one — and, importantly, **it will not add a
   new index (like `uq_bookmarks_url_active`) to a table that already exists.** A database created
   before the url-uniqueness index was added therefore won't get the constraint until it's recreated.
-  **Changing a column or adding an index means deleting the dev database file (or the Docker volume)
-  — or introducing Alembic, which is the right move if the schema starts evolving.**
+- **Adding a column to `BookmarkRow` also means adding an `ALTER TABLE ADD COLUMN` to
+  `outbound/migrations.py`**, which `main.py` runs right after `create_all` on the same connection.
+  Without it, existing databases (the `/data` volume, a local `bookmarks.db`) keep the old table and
+  every query fails with "no such column". Each step must be idempotent — it re-runs on every boot —
+  and must decide what the backfill value means for rows that predate the feature. Note that
+  SQLAlchemy's `Enum` persists member *names*, so the SQL default is `'DONE'`, not `'done'`.
+- **Any other schema change (altering a column, dropping one, adding an index) still means deleting
+  the dev database file or the Docker volume** — or introducing Alembic, which is the right move if
+  the schema starts evolving that way.
 - `tags` is a JSON array in one column, not a join table — chosen as the simplest thing that still
   models tags as a real list, accepting a JSON query instead of a SQL join as the cost. Tag
   filtering therefore uses SQLite's `json_each` table-valued function for an exact match on a list

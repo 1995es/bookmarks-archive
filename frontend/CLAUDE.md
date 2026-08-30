@@ -21,21 +21,58 @@ break the build, not just the editor.
 
 ## Structure
 
-Four files under `src/`, and that's intended to stay small:
-
-- `App.tsx` — the entire UI as one component: table view, inline add form with a bulk-URL mode,
-  inline row editing, delete with `window.confirm`, tag/type filters, sort controls, and
-  pagination.
-- `api.ts` — `fetch` wrappers. No data-fetching library.
-- `types.ts` — hand-written mirror of the backend's Pydantic schemas.
-- `index.css` — plain CSS, no framework. Notion-style: quiet borders, generous whitespace.
+```
+src/
+├── App.tsx                          composition root: owns list state, filters, sort,
+│                                     pagination, polling, and the selected-bookmark id
+├── api.ts                           fetch wrappers. No data-fetching library.
+├── types.ts                         hand-written mirror of the backend's Pydantic schemas.
+├── utils.ts                         parseTags/parseBulkUrls/formatDate, BOOKMARK_TYPES, PAGE_SIZE
+├── index.css                        plain CSS, no framework. Notion-style: quiet borders,
+│                                     generous whitespace.
+└── components/
+    ├── AddBookmarkForm.tsx          add form incl. bulk-URL mode; owns its own form state,
+    │                                calls createBookmark itself, reports back via onCreated/onError
+    ├── FiltersBar.tsx               tag/type filter controls (controlled by App)
+    ├── BookmarksTable.tsx           read-only table: name, description, tags, type, and one
+    │                                eye-icon button per row that opens the detail modal
+    ├── Pagination.tsx               prev/next + range display (controlled by App)
+    └── BookmarkDetailModal.tsx      per-bookmark modal: status badge + retry (when FAILED),
+                                     url, date added, description, tags, type, and Edit/Delete —
+                                     owns its own edit-draft/saving/deleting/retrying state
+```
 
 Don't reach for a state manager, data-fetching library, or component library; the scope doesn't
-justify one.
+justify one. Keep components presentational where possible — `App.tsx` remains the only place
+that talks to `listBookmarks`/holds the polling loop, so there's one source of truth for what's
+on screen.
+
+## The detail modal
+
+Clicking a row's eye button sets `App`'s `selectedId`; the modal itself is rendered as
+`bookmarks.find(b => b.id === selectedId)`, not a copy fetched separately. That means the same
+5s enrichment poll that refreshes the table also keeps an open modal's status badge current (e.g.
+`pending` flipping to `done`), and a bookmark deleted through another path (or no longer matching
+the active filters after a refresh) makes the modal disappear on its own rather than showing stale
+data — there is no separate "close on delete" special case to maintain beyond clearing `selectedId`
+in `onDeleted`.
+
+Editing, deleting, and retrying enrichment all live inside `BookmarkDetailModal` and call
+`api.ts` directly, then invoke a callback prop (`onUpdated`/`onDeleted`/`onRetried`) that's just
+`App`'s `refresh`. There's no optimistic local update — same pattern as the rest of the app.
+
+Retry only renders when `enrichment_status === "failed"` and calls
+`POST /bookmarks/{id}/retry-enrichment` (`api.ts::retryEnrichment`); the backend resets the status
+to `pending` and reschedules the background task, so the poll above picks it up the same way a
+freshly-created bookmark's enrichment does — see `backend/CLAUDE.md`.
+
+Name, url, description, tags and type are no longer editable inline in the table — that inline-row
+editing was removed when Edit moved into the modal. The table also no longer renders a "date
+added" column; that value only appears in the modal now, alongside the enrichment status.
 
 ## How data flows
 
-`App.tsx` owns all state. `refresh()` is a `useCallback` keyed on `filterTag`, `filterType`,
+`App.tsx` owns all list state. `refresh()` is a `useCallback` keyed on `filterTag`, `filterType`,
 `sortBy`, `sortOrder` and `offset`, and a `useEffect` calls it whenever that identity changes — so
 **filtering, sorting and pagination are all server-side**: changing any of them re-queries
 `GET /bookmarks`, it does not reorder or slice the loaded array. **Anything new that affects the

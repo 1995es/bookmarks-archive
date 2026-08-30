@@ -9,7 +9,8 @@ import uuid
 import pytest
 
 from app.application import bookmark_service
-from app.domain.models import Bookmark, BookmarkType
+from app.domain.exceptions import BookmarkEnrichmentNotFailedError
+from app.domain.models import Bookmark, BookmarkType, EnrichmentStatus
 from tests.fakes import FakeBookmarkRepository
 from tests.repository_contract import (  # noqa: F401 - collected as tests in this module
     test_add_allows_reusing_a_soft_deleted_url,
@@ -136,3 +137,29 @@ async def test_delete_sets_deleted_at_via_domain_object(repo: FakeBookmarkReposi
 
 async def test_delete_unknown_id_returns_false(repo: FakeBookmarkRepository) -> None:
     assert await bookmark_service.delete_bookmark(repo, uuid.uuid7()) is False
+
+
+async def test_retry_enrichment_resets_failed_bookmark_to_pending(
+    repo: FakeBookmarkRepository,
+) -> None:
+    created = await _create(repo)
+    stored = repo._rows[created.id]
+    stored.mark_enrichment_failed()
+
+    result = await bookmark_service.retry_enrichment(repo, created.id)
+
+    assert result is not None
+    assert result.enrichment_status == EnrichmentStatus.PENDING
+
+
+async def test_retry_enrichment_rejects_non_failed_bookmark(
+    repo: FakeBookmarkRepository,
+) -> None:
+    created = await _create(repo)
+
+    with pytest.raises(BookmarkEnrichmentNotFailedError):
+        await bookmark_service.retry_enrichment(repo, created.id)
+
+
+async def test_retry_enrichment_unknown_id_returns_none(repo: FakeBookmarkRepository) -> None:
+    assert await bookmark_service.retry_enrichment(repo, uuid.uuid7()) is None

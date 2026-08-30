@@ -3,7 +3,8 @@
 import uuid
 from urllib.parse import urlparse
 
-from app.domain.models import Bookmark, BookmarkType
+from app.domain.exceptions import BookmarkEnrichmentNotFailedError
+from app.domain.models import Bookmark, BookmarkType, EnrichmentStatus
 from app.domain.ports import BookmarkRepository, SortField, SortOrder
 
 
@@ -83,6 +84,22 @@ async def update_bookmark(
     if bookmark is None:
         return None
     bookmark.update(name=name, url=url, description=description, tags=tags, type=type)
+    return await repo.save(bookmark)
+
+
+async def retry_enrichment(repo: BookmarkRepository, bookmark_id: uuid.UUID) -> Bookmark | None:
+    """Reset a FAILED bookmark to PENDING so the caller can reschedule enrichment.
+
+    Raises BookmarkEnrichmentNotFailedError if the bookmark isn't currently
+    FAILED — retrying a bookmark that's still pending or already done would
+    just race the in-flight/completed attempt.
+    """
+    bookmark = await repo.get(bookmark_id)
+    if bookmark is None:
+        return None
+    if bookmark.enrichment_status != EnrichmentStatus.FAILED:
+        raise BookmarkEnrichmentNotFailedError(bookmark_id)
+    bookmark.mark_enrichment_pending()
     return await repo.save(bookmark)
 
 

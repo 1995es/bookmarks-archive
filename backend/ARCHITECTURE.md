@@ -96,13 +96,22 @@ keeps its URL forever. The repository relies on the index as the authority rathe
 Two couplings are SQLite-specific and would need rewriting to move to another database: `json_each`
 tag filtering, and that partial index.
 
-### No migrations
+### Schema changes without Alembic
 
 `Base.metadata.create_all()` runs once at startup. It creates missing tables and nothing else — it
-will not alter an existing table, nor add a new index to one that already exists. Changing a column
-or adding an index today means deleting the database file or the Docker volume. If the schema
-starts evolving, that's the point to introduce Alembic; the absence of one is a deliberate choice
-for an app whose schema hasn't moved, not an oversight.
+will not alter an existing table, nor add a new index to one that already exists. So a database
+that already holds bookmarks (the `/data` volume, a local `bookmarks.db`) never sees a column added
+later, and every query naming it fails with "no such column".
+
+`adapters/outbound/migrations.py` closes that gap for added columns only. `run_migrations()` runs
+right after `create_all()`, checks the live table's columns, and issues the `ALTER TABLE ADD COLUMN`
+it finds missing — idempotent, so a fresh database sees it as a no-op. It currently backfills
+`enrichment_status`, defaulting pre-existing rows to `done` (nothing will ever enrich them in the
+background, so `pending` would be a lie).
+
+That covers new columns and nothing else: changing a column's type, dropping one, or adding an index
+to an existing table still means deleting the database file or the Docker volume. If the schema
+starts evolving in those directions, that's the point to introduce Alembic.
 
 `DATABASE_URL` defaults to `sqlite:///./bookmarks.db` locally and `sqlite:////data/bookmarks.db` in
 containers. A driverless `sqlite://` URL is rewritten to `sqlite+aiosqlite://` automatically, so

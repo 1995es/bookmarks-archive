@@ -25,6 +25,16 @@ class BookmarkUrlConflictError(Exception):
         super().__init__(f"A bookmark with url {url!r} already exists")
 
 
+class BookmarkEnrichmentNotFailedError(Exception):
+    """Raised when a retry is requested for a bookmark whose enrichment_status
+    isn't FAILED — retrying is only meaningful once background enrichment has
+    given up."""
+
+    def __init__(self, bookmark_id: uuid.UUID) -> None:
+        self.bookmark_id = bookmark_id
+        super().__init__(f"Bookmark {bookmark_id} enrichment has not failed")
+
+
 class ContentFetchError(Exception):
     """Raised by ContentFetcher.fetch() on a network failure or non-2xx status."""
 

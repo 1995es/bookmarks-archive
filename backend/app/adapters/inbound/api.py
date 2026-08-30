@@ -74,6 +74,20 @@ async def update_bookmark(
     return updated
 
 
+@router.post("/bookmarks/{bookmark_id}/retry-enrichment", response_model=BookmarkRead)
+async def retry_enrichment(
+    bookmark_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    repo: BookmarkRepository = Depends(get_repository),
+    enrich: EnrichmentRunner = Depends(get_enrichment_runner),
+) -> BookmarkRead:
+    updated = await bookmark_service.retry_enrichment(repo, bookmark_id)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Bookmark not found")
+    background_tasks.add_task(enrich, updated.id)
+    return updated
+
+
 @router.delete("/bookmarks/{bookmark_id}", status_code=204)
 async def delete_bookmark(
     bookmark_id: uuid.UUID, repo: BookmarkRepository = Depends(get_repository)

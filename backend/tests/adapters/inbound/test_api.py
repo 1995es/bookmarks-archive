@@ -23,7 +23,7 @@ from app.adapters.outbound.database import Base, get_db
 from app.adapters.outbound.orm import BookmarkRow
 from app.adapters.outbound.sqlalchemy_repository import SqlAlchemyBookmarkRepository
 from app.application.enrich_bookmark import enrich_bookmark
-from app.domain.models import ExtractedData, FetchedContent
+from app.domain.models import EnrichmentStatus, ExtractedData, FetchedContent
 from app.domain.ports import BookmarkEnricherService, ContentFetcher
 from app.main import app
 
@@ -452,6 +452,42 @@ async def test_other_endpoints_do_not_schedule_enrichment(client: AsyncClient) -
     await client.delete(f"/bookmarks/{created['id']}")
 
     assert spy.calls == []
+
+
+async def _mark_failed(db_session: AsyncSession, bookmark_id: str) -> None:
+    row = await db_session.get(BookmarkRow, uuid.UUID(bookmark_id))
+    assert row is not None
+    row.enrichment_status = EnrichmentStatus.FAILED
+    await db_session.commit()
+
+
+async def test_retry_enrichment_resets_status_and_reschedules(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    created = (await client.post("/bookmarks", json=make_payload())).json()
+    await _mark_failed(db_session, created["id"])
+
+    spy = RunnerSpy()
+    app.dependency_overrides[get_enrichment_runner] = lambda: spy
+
+    resp = await client.post(f"/bookmarks/{created['id']}/retry-enrichment")
+
+    assert resp.status_code == 200
+    assert resp.json()["enrichment_status"] == "pending"
+    assert spy.calls == [uuid.UUID(created["id"])]
+
+
+async def test_retry_enrichment_unknown_id_404(client: AsyncClient) -> None:
+    resp = await client.post(f"/bookmarks/{uuid.uuid7()}/retry-enrichment")
+    assert resp.status_code == 404
+
+
+async def test_retry_enrichment_not_failed_returns_409(client: AsyncClient) -> None:
+    created = (await client.post("/bookmarks", json=make_payload())).json()
+
+    resp = await client.post(f"/bookmarks/{created['id']}/retry-enrichment")
+
+    assert resp.status_code == 409
 
 
 # --- Background enrichment: end-to-end ---

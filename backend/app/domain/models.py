@@ -19,8 +19,9 @@ class EnrichmentStatus(str, Enum):
     """Where a bookmark stands in the background enrichment pipeline.
 
     A bookmark is born PENDING and moves to DONE (Bookmark.enrich() succeeded)
-    or FAILED (background.py exhausted its retries) exactly once — there's no
-    automatic re-attempt of a FAILED bookmark yet, only a future manual retry.
+    or FAILED (background.py exhausted its retries). A FAILED bookmark can be
+    moved back to PENDING via Bookmark.mark_enrichment_pending(), the manual
+    retry path — there's still no automatic re-attempt.
     """
 
     PENDING = "pending"
@@ -145,6 +146,10 @@ class Bookmark:
         bookmark. Called instead of enrich() — the bookmark keeps whatever
         description/tags it already had."""
         self.enrichment_status = EnrichmentStatus.FAILED
+
+    def mark_enrichment_pending(self) -> None:
+        """Reset a FAILED bookmark so background.py can attempt enrichment again."""
+        self.enrichment_status = EnrichmentStatus.PENDING
 
     def validate(self) -> None:
         if not self.name:

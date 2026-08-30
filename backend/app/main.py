@@ -13,7 +13,9 @@ from app.adapters.inbound.api import router
 from app.adapters.outbound import orm  # noqa: F401  # registers BookmarkRow on Base.metadata
 from app.adapters.outbound.database import Base, engine
 from app.adapters.outbound.llm_config import resolve_llm_model
+from app.adapters.outbound.migrations import run_migrations
 from app.domain.exceptions import (
+    BookmarkEnrichmentNotFailedError,
     BookmarkInvalidError,
     BookmarkNotFoundError,
     BookmarkUrlConflictError,
@@ -60,6 +62,15 @@ async def bookmark_url_conflict_handler(
     """A url that already belongs to a live bookmark is a 409 Conflict, not a
     validation error: the request is well-formed, it just collides with existing
     state. Raised by the repository (add/save) via the port's uniqueness contract."""
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(BookmarkEnrichmentNotFailedError)
+async def bookmark_enrichment_not_failed_handler(
+    request: Request, exc: BookmarkEnrichmentNotFailedError
+) -> JSONResponse:
+    """Retrying enrichment only makes sense once it has actually FAILED — a
+    request against a pending/done bookmark is a 409, not a validation error."""
     return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 

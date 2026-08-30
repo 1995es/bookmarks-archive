@@ -27,11 +27,12 @@ docker compose up --build                          # dev: hot reload, :8000 + :5
 docker compose -f docker-compose.prod.yml up --build # prod: nginx static build, :8000 + :80
 ```
 
-There is no database container — SQLite is a file the backend process opens directly, persisted in
-the named volume `bookmarks_data` mounted at `/data`. Dev and prod share that volume name by
-default, and the prod image runs as non-root while the dev image runs as root — switching modes
-against the same volume produces "readonly database" errors. Run `docker compose down -v` between
-modes, or use distinct project names (`docker compose -p ...`).
+There is no database container — SQLite is a file the backend process opens directly. Dev bind-mounts
+the host directory `./data` at `/data`, so `./data/bookmarks.db` is a real file you can query with a
+local `sqlite3` or a GUI tool while the stack is running. Prod instead persists to the named volume
+`bookmarks_data` mounted at `/data`, since the prod image runs as non-root and a host bind mount
+would need matching UIDs. The two modes no longer share storage, so switching between them can't
+produce the "readonly database" errors that a shared volume used to cause.
 
 The dev frontend service declares an anonymous volume over `/app/node_modules` on purpose, so the
 bind-mounted host `./frontend` doesn't shadow the install `npm ci` did inside the image. Don't

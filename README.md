@@ -69,15 +69,20 @@ docker compose -f docker-compose.prod.yml up --build
 ### Data persistence
 
 There is no database container. SQLite isn't a server process — it's a file the backend reads and
-writes directly. Persistence comes from the named Docker volume `bookmarks_data`, mounted at
-`/data`, holding `bookmarks.db`. It survives `docker compose down`; only `docker compose down -v`
-or `docker volume rm` removes it.
+writes directly.
 
-> Dev and prod share that same volume name by default. Running both against this directory without
-> removing the volume in between can produce a "readonly database" error, because the prod image
-> runs as a non-root user against files the dev image's root user created. Run
-> `docker compose down -v` when switching modes, or give each mode its own project name
-> (`docker compose -p bookmarks-dev ...` / `-p bookmarks-prod ...`).
+In dev, that file lives at `./data/bookmarks.db` on the host, bind-mounted into the container at
+`/data`. You can open it directly with any SQLite client while the stack is running:
+
+```bash
+sqlite3 ./data/bookmarks.db
+```
+
+In prod, persistence instead comes from the named Docker volume `bookmarks_data`, mounted at
+`/data`, since the prod image runs as a non-root user and a host bind mount would need matching
+UIDs. It survives `docker compose down`; only `docker compose down -v` or `docker volume rm`
+removes it. Dev and prod no longer share storage, so switching between modes doesn't risk the
+"readonly database" error a shared volume used to cause.
 
 ### Running without Docker
 

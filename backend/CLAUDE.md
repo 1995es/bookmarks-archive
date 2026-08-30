@@ -154,11 +154,32 @@ there's no check-then-insert race.
   `get_db` closes its session when the request ends, before the task runs, so the route's injected
   `repo` is unusable by then. `background.py` composes a fresh `SqlAlchemyBookmarkRepository` for
   this reason — anything scheduled with `BackgroundTasks` in this codebase must do the same.
-- **`run_enrichment` swallows every exception.** `ContentFetchError`, `EnrichmentError`,
-  `BookmarkNotFoundError`, and `BookmarkInvalidError` are logged at `warning`; anything else is
-  logged at `exception`. Nothing propagates past this function — a failed enrichment just leaves
-  the bookmark un-enriched. `enrich_bookmark()` itself does *not* catch anything; the task boundary
-  is deliberately the only place that decides what to do with a failure.
+- **`run_enrichment` swallows every exception.** `BookmarkNotFoundError` and `BookmarkInvalidError`
+  are logged at `warning`; anything else is logged at `exception`. Nothing propagates past this
+  function. `enrich_bookmark()` itself does *not* catch anything; the task boundary is deliberately
+  the only place that decides what to do with a failure.
+- **`Bookmark.enrichment_status` (`pending | done | failed`) makes a permanent failure visible and
+  stoppable, instead of indistinguishable from "still running".** A bookmark is born `pending`;
+  `Bookmark.enrich()` sets it to `done`; `background.py::_mark_enrichment_failed()` sets it to
+  `failed` once retries are exhausted. The frontend's poll (see `frontend/CLAUDE.md`) stops on
+  either terminal state — this is what fixes the pre-existing bug where a permanently-failed
+  enrichment (network down, LLM error, an exceeded free-tier rate limit) left the frontend polling
+  `GET /bookmarks` every 5s forever, since `!description` never became true. There is currently no
+  way to move a `failed` bookmark back to `pending` — a manual retry (per-bookmark or bulk) is a
+  deliberately deferred follow-up, not yet implemented.
+- **`ContentFetchError`/`EnrichmentError` are retried with backoff before being treated as a
+  failure**, via `tenacity`: `background.py::enrich_bookmark_with_retry` wraps `enrich_bookmark()`
+  with `stop_after_attempt(5)` and `wait_exponential(multiplier=1, min=1, max=30)`, and
+  `reraise=True` so the final attempt's exception is what `run_enrichment` catches.
+  `BookmarkNotFoundError`/`BookmarkInvalidError` are *not* retried — the bookmark being deleted or
+  invalid won't change on a second attempt. Only after all 5 attempts fail does
+  `_mark_enrichment_failed()` run: it re-`get()`s the bookmark (the one `enrich_bookmark` held may
+  be stale after multiple attempts on the same session) and calls
+  `Bookmark.mark_enrichment_failed()` + `repo.save()`, itself tolerating a concurrent delete via
+  `BookmarkNotFoundError`. Tests that need to exercise the retry path without five real backoffs
+  monkeypatch `enrich_bookmark_with_retry.retry.wait` (tenacity exposes the `Retrying`/
+  `AsyncRetrying` instance as `.retry` on the decorated function) — see
+  `tests/adapters/inbound/test_background.py`.
 - **Only one repo read.** A concurrent `PUT` between the task's `get()` and `save()` can be
   overwritten by the enrichment write, or vice versa. Accepted as-is — single-user, local app.
 - **`LLMBookmarkEnricherService`** (`app/adapters/outbound/llm_bookmark_enricher.py`) calls

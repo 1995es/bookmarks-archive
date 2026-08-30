@@ -12,6 +12,7 @@ from app.domain.models import (
     _MAX_TAG_LENGTH,
     _MAX_TAGS,
     BookmarkType,
+    EnrichmentStatus,
 )
 
 
@@ -84,6 +85,7 @@ class BookmarkRead(BookmarkBase):
 
     id: UUID
     created_at: datetime
+    enrichment_status: EnrichmentStatus
 
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime) -> str:

@@ -163,7 +163,7 @@ export default function App() {
   }, [filterTag, filterType, sortBy, sortOrder]);
 
   const hasPendingEnrichment = bookmarks.some(
-    (bookmark) => !bookmark.description,
+    (bookmark) => bookmark.enrichment_status === "pending",
   );
 
   useEffect(() => {

@@ -52,10 +52,14 @@ Three behaviors are easy to break by accident:
   sequence number on the way out; a response whose number is stale is dropped instead of rendered,
   including in the `catch` and `finally` branches (a stale failure must not clear a fresh
   `loading`). Any new request path that writes to `bookmarks`/`total` needs the same guard.
-- **Enrichment is polled, not pushed.** `hasPendingEnrichment` is `bookmarks.some(b => !b.description)`;
-  while true, a 5s `setInterval` re-fetches the current page and the effect tears it down once
-  every row has a description. That poll deliberately swallows its errors — it must not clobber the
-  error banner with a transient failure the user didn't cause.
+- **Enrichment is polled, not pushed.** `hasPendingEnrichment` is
+  `bookmarks.some(b => b.enrichment_status === "pending")`; while true, a 5s `setInterval`
+  re-fetches the current page and the effect tears it down once no row is still pending. Backend
+  enrichment retries transient failures itself (see `backend/CLAUDE.md`); once it gives up, the
+  bookmark's `enrichment_status` becomes `"failed"`, which this predicate treats as finished, not
+  pending — so a permanent failure stops the poll instead of running it forever. That poll
+  deliberately swallows its errors — it must not clobber the error banner with a transient failure
+  the user didn't cause.
 - **Bulk add loops `POST /bookmarks` client-side.** There is no bulk endpoint and shouldn't be one.
   `Promise.allSettled` over the parsed URLs, then the failures (usually `409` duplicates) are
   listed with their messages and written back into the textarea so a resubmit retries only those.

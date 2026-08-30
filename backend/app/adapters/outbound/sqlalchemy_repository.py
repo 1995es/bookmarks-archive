@@ -26,6 +26,7 @@ def _to_domain(row: BookmarkRow) -> Bookmark:
         type=row.type,
         created_at=row.created_at,
         deleted_at=row.deleted_at,
+        enrichment_status=row.enrichment_status,
     )
 
 
@@ -50,6 +51,7 @@ def _copy_into_row(bookmark: Bookmark, row: BookmarkRow) -> None:
     row.type = bookmark.type
     row.created_at = bookmark.created_at
     row.deleted_at = bookmark.deleted_at
+    row.enrichment_status = bookmark.enrichment_status
 
 
 class SqlAlchemyBookmarkRepository(BookmarkRepository):

@@ -15,6 +15,19 @@ class BookmarkType(str, Enum):
     SITE = "site"
 
 
+class EnrichmentStatus(str, Enum):
+    """Where a bookmark stands in the background enrichment pipeline.
+
+    A bookmark is born PENDING and moves to DONE (Bookmark.enrich() succeeded)
+    or FAILED (background.py exhausted its retries) exactly once — there's no
+    automatic re-attempt of a FAILED bookmark yet, only a future manual retry.
+    """
+
+    PENDING = "pending"
+    DONE = "done"
+    FAILED = "failed"
+
+
 _MAX_NAME_LENGTH = 200
 _MAX_TAGS = 50
 _MAX_TAG_LENGTH = 50
@@ -54,6 +67,7 @@ class Bookmark:
     type: BookmarkType
     created_at: datetime | None = None
     deleted_at: datetime | None = None
+    enrichment_status: EnrichmentStatus = EnrichmentStatus.PENDING
 
     def __post_init__(self) -> None:
         self.tags = list(self.tags)
@@ -123,7 +137,14 @@ class Bookmark:
                 self.tags.append(tag)
         self.tags = self.tags[:_MAX_TAGS]
 
+        self.enrichment_status = EnrichmentStatus.DONE
         self.validate()
+
+    def mark_enrichment_failed(self) -> None:
+        """Record that background.py exhausted its retries without enriching this
+        bookmark. Called instead of enrich() — the bookmark keeps whatever
+        description/tags it already had."""
+        self.enrichment_status = EnrichmentStatus.FAILED
 
     def validate(self) -> None:
         if not self.name:

@@ -1,5 +1,9 @@
 export type BookmarkType = "post" | "video" | "tweet" | "site";
 
+/** Where a bookmark stands in the background enrichment pipeline (read-only,
+ * server-derived). "pending" is worth polling for; "done"/"failed" are final. */
+export type EnrichmentStatus = "pending" | "done" | "failed";
+
 /** Server-generated UUID (uuid7), serialized as a string. Opaque to the client. */
 export type BookmarkId = string;
 
@@ -11,6 +15,7 @@ export interface Bookmark {
   tags: string[];
   type: BookmarkType;
   created_at: string;
+  enrichment_status: EnrichmentStatus;
 }
 
 export interface BookmarkInput {

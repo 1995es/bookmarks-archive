@@ -9,6 +9,8 @@ import logging
 import uuid
 from collections.abc import Awaitable, Callable
 
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
 from app.adapters.outbound.database import SessionLocal
 from app.adapters.outbound.http_content_fetcher import HttpContentFetcher
 from app.adapters.outbound.llm_bookmark_enricher import LLMBookmarkEnricherService
@@ -21,6 +23,7 @@ from app.domain.exceptions import (
     ContentFetchError,
     EnrichmentError,
 )
+from app.domain.ports import BookmarkRepository
 
 logger = logging.getLogger(__name__)
 
@@ -31,20 +34,59 @@ EnrichmentRunner = Callable[[uuid.UUID], Awaitable[None]]
 # directly) still get a usable value.
 llm_model: str = DEFAULT_MODEL
 
+_MAX_ENRICHMENT_ATTEMPTS = 5
+
+# ContentFetchError/EnrichmentError cover transient failures — a flaky fetch, or an
+# LLM provider rejecting the request (e.g. a free-tier rate limit) — which are worth
+# retrying with backoff. BookmarkNotFoundError/BookmarkInvalidError are not retried:
+# they mean the bookmark was deleted or is otherwise invalid, and trying again won't
+# change that. Exposed as a module attribute (`.retry`) so tests can swap out the
+# wait strategy instead of sleeping through five real backoffs.
+enrich_bookmark_with_retry = retry(
+    retry=retry_if_exception_type((ContentFetchError, EnrichmentError)),
+    stop=stop_after_attempt(_MAX_ENRICHMENT_ATTEMPTS),
+    wait=wait_exponential(multiplier=1, min=1, max=30),
+    reraise=True,
+)(enrich_bookmark)
+
+
+async def _mark_enrichment_failed(bookmark_id: uuid.UUID, repo: BookmarkRepository) -> None:
+    bookmark = await repo.get(bookmark_id)
+    if bookmark is None:
+        return
+    bookmark.mark_enrichment_failed()
+    try:
+        await repo.save(bookmark)
+    except BookmarkNotFoundError:
+        # Deleted between this get() and save() — nothing left to mark.
+        pass
+
 
 async def run_enrichment(bookmark_id: uuid.UUID) -> None:
     """Composes dependencies, opens its own session, and swallows every failure.
 
-    Nothing past this function should ever raise: a failed enrichment just
-    leaves the bookmark un-enriched, logged for visibility.
+    Nothing past this function should ever raise: after retries are exhausted,
+    the bookmark is persisted as enrichment_status=FAILED and the failure is
+    logged for visibility, rather than left indistinguishable from "never ran".
     """
     try:
         async with SessionLocal() as db:
             repo = SqlAlchemyBookmarkRepository(db)
             async with HttpContentFetcher() as fetcher:
                 enricher = LLMBookmarkEnricherService(model=llm_model)
-                await enrich_bookmark(bookmark_id, repo=repo, fetcher=fetcher, enricher=enricher)
-    except (ContentFetchError, EnrichmentError, BookmarkNotFoundError, BookmarkInvalidError) as exc:
+                try:
+                    await enrich_bookmark_with_retry(
+                        bookmark_id, repo=repo, fetcher=fetcher, enricher=enricher
+                    )
+                except (ContentFetchError, EnrichmentError) as exc:
+                    logger.warning(
+                        "enrichment failed for %s after %d attempts: %s",
+                        bookmark_id,
+                        _MAX_ENRICHMENT_ATTEMPTS,
+                        exc,
+                    )
+                    await _mark_enrichment_failed(bookmark_id, repo)
+    except (BookmarkNotFoundError, BookmarkInvalidError) as exc:
         # BookmarkNotFoundError here means the bookmark was deleted between the
         # use case's get() and save() — an expected race, not a bug.
         logger.warning("enrichment failed for %s: %s", bookmark_id, exc)

@@ -8,7 +8,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.adapters.outbound.database import Base
-from app.domain.models import BookmarkType
+from app.domain.models import BookmarkType, EnrichmentStatus
 
 
 class BookmarkRow(Base):
@@ -36,4 +36,7 @@ class BookmarkRow(Base):
     type: Mapped[BookmarkType] = mapped_column(SAEnum(BookmarkType), nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
+    )
+    enrichment_status: Mapped[EnrichmentStatus] = mapped_column(
+        SAEnum(EnrichmentStatus), default=EnrichmentStatus.PENDING, nullable=False
     )

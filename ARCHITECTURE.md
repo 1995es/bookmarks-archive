@@ -115,10 +115,9 @@ Two consequences of that shape are worth knowing up front:
   the JSON text — otherwise filtering by `py` would match `python`. `name`, by contrast, is a
   case-insensitive substring match, since it backs a search box.
 
-There is no migrations tool: `create_all()` at startup creates missing tables and nothing else — it
-will not alter an existing table or add an index to one. A hand-rolled step after it adds columns
-the ORM has gained since a database was created; every other schema change still means deleting the
-database file or volume. See `backend/ARCHITECTURE.md` for what that covers.
+Schema changes go through Alembic: `alembic upgrade head` runs as a step before the app process
+starts (baked into `Dockerfile`/`Dockerfile.prod`, or run by hand locally), not at app startup. A
+database that predates Alembic must be `alembic stamp head`'d once — see `backend/ARCHITECTURE.md`.
 
 ## Deployment topology
 

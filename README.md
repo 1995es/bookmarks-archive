@@ -31,7 +31,7 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the full picture, which links on 
 - **Backend**: Python 3.14, FastAPI, SQLAlchemy 2 asyncio (aiosqlite), Pydantic v2, `uv`, pytest,
   ruff. Async all the way down.
 - **Frontend**: React 19, TypeScript, Vite. Plain `fetch`, no data-fetching library.
-- **Database**: SQLite, a single `bookmarks` table, no migrations tool.
+- **Database**: SQLite, a single `bookmarks` table, schema managed with Alembic.
 - **Containers**: separate dev (hot reload) and prod (nginx-served static build) Compose files.
 
 ## Running it

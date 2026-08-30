@@ -10,10 +10,8 @@ from fastapi.responses import JSONResponse
 
 from app.adapters.inbound import background
 from app.adapters.inbound.api import router
-from app.adapters.outbound import orm  # noqa: F401  # registers BookmarkRow on Base.metadata
-from app.adapters.outbound.database import Base, engine
+from app.adapters.outbound.database import engine
 from app.adapters.outbound.llm_config import resolve_llm_model
-from app.adapters.outbound.migrations import run_migrations
 from app.domain.exceptions import (
     BookmarkEnrichmentNotFailedError,
     BookmarkInvalidError,
@@ -30,9 +28,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # inside the first background enrichment task.
     background.llm_model = resolve_llm_model()
 
-    # create_all is sync DDL; run_sync drives it over the async engine's connection.
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Schema is brought up to date by `alembic upgrade head`, run as a step before
+    # this process starts (see Dockerfile/Dockerfile.prod) rather than here.
     yield
     await engine.dispose()
 

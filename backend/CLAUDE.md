@@ -12,7 +12,9 @@ enrichment after `POST /bookmarks`. See the repo-root `CLAUDE.md` for cross-cutt
 
 ```bash
 uv sync                                            # install deps (incl. dev group)
+uv run alembic upgrade head                        # apply schema migrations (run before uvicorn)
 uv run uvicorn app.main:app --reload --port 8000   # run locally
+uv run alembic revision -m "..."                   # new migration (empty scaffold to fill in)
 uv run pytest                                      # full suite (fast — a couple of seconds)
 uv run pytest tests/domain/test_models.py          # one file
 uv run pytest -k tag_filter                        # one test by name substring
@@ -41,13 +43,15 @@ app/
 │   ├── inbound/     api.py (FastAPI routes), schemas.py (Pydantic DTOs), background.py
 │   │                (BackgroundTask edge that runs enrich_bookmark after POST)
 │   └── outbound/    database.py (engine/session), orm.py (BookmarkRow),
-│                    migrations.py (idempotent ALTER TABLE steps, run after create_all),
 │                    sqlalchemy_repository.py (implements BookmarkRepository),
 │                    http_content_fetcher.py (implements ContentFetcher over httpx),
 │                    llm_bookmark_enricher.py (implements BookmarkEnricherService via
 │                    litellm.acompletion), llm_config.py (resolves/validates LLM_MODEL)
-└── main.py          composition root: app, CORS, exception handlers, create_all +
-                     run_migrations at lifespan
+└── main.py          composition root: app, CORS, exception handlers, lifespan
+                     (LLM_MODEL validation; schema is Alembic's job, not this file's)
+
+alembic/             env.py (points at Base.metadata + DATABASE_URL), versions/ (migrations,
+                     applied via `alembic upgrade head` — see "Storage notes")
 ```
 
 Rules that keep this working, in rough order of how easy they are to break:
@@ -248,26 +252,34 @@ gets a coroutine object, not a result** — assertions on it fail in confusing w
   compose files and `Dockerfile.prod` keep working unchanged; `create_async_engine` would otherwise
   reject the sync pysqlite dialect. `check_same_thread` is only passed for `sqlite://` URLs — other
   dialects reject it.
-- No migrations tool. `create_all` runs at startup via `conn.run_sync()` (it is sync DDL) and only
-  creates missing tables; it will not alter an existing one — and, importantly, **it will not add a
-  new index (like `uq_bookmarks_url_active`) to a table that already exists.** A database created
-  before the url-uniqueness index was added therefore won't get the constraint until it's recreated.
-- **Adding a column to `BookmarkRow` also means adding an `ALTER TABLE ADD COLUMN` to
-  `outbound/migrations.py`**, which `main.py` runs right after `create_all` on the same connection.
-  Without it, existing databases (the `/data` volume, a local `bookmarks.db`) keep the old table and
-  every query fails with "no such column". Each step must be idempotent — it re-runs on every boot —
-  and must decide what the backfill value means for rows that predate the feature. Note that
-  SQLAlchemy's `Enum` persists member *names*, so the SQL default is `'DONE'`, not `'done'`.
-- **Any other schema change (altering a column, dropping one, adding an index) still means deleting
-  the dev database file or the Docker volume** — or introducing Alembic, which is the right move if
-  the schema starts evolving that way.
+- **Schema is owned entirely by Alembic**, not by `main.py`. `alembic upgrade head` runs as a step
+  *before* the app process starts — chained into the Docker `CMD`
+  (`uv run alembic upgrade head && uv run uvicorn ...`, in both `Dockerfile` and `Dockerfile.prod`)
+  — never inside the FastAPI lifespan, so a failed migration stops the container from ever serving
+  traffic instead of surfacing as a runtime 500. Running locally without Docker, run it by hand
+  before `uvicorn` (see Commands above).
+- `alembic/env.py` points `target_metadata` at `app.adapters.outbound.database.Base.metadata` (after
+  importing `orm` to register `BookmarkRow`) and overrides `sqlalchemy.url` with the same
+  `DATABASE_URL` the app reads, so `alembic revision --autogenerate` and `alembic upgrade` always
+  target the same database the app would.
+- **The baseline revision (`alembic/versions/875c6f32916c_create_bookmarks_table.py`) is a plain
+  `create_table`**, written as if the project had used Alembic from the start — it assumes an empty
+  database and will fail with "table already exists" against one `create_all()` (or the now-deleted
+  `outbound/migrations.py`) already built. **Any database that predates Alembic must be stamped, not
+  upgraded**: `alembic stamp head` records the revision as applied without running its DDL. Do this
+  once per pre-existing database (a local `bookmarks.db`, the prod `/data` volume) before the first
+  `alembic upgrade head` ever runs against it — `docker-compose up` alone won't do this for you.
+- **A new column on `BookmarkRow` needs a new Alembic revision** (`alembic revision --autogenerate
+  -m "..."`, then review the generated diff — autogenerate doesn't reliably detect SQLite partial
+  indexes like `uq_bookmarks_url_active`), not a hand-edit of the baseline revision above.
 - `tags` is a JSON array in one column, not a join table — chosen as the simplest thing that still
   models tags as a real list, accepting a JSON query instead of a SQL join as the cost. Tag
   filtering therefore uses SQLite's `json_each` table-valued function for an exact match on a list
   entry; a `LIKE '%tag%'` over the JSON column would wrongly match `python` when filtering by `py`.
   `json_each` is SQLite-specific — switching dialects means rewriting that branch.
-- `orm.py` must be imported before `create_all()` so `BookmarkRow` is registered on
-  `Base.metadata`; `main.py` does this with a `# noqa: F401` import.
+- `orm.py` must be imported before anything touches `Base.metadata` so `BookmarkRow` is registered
+  on it; `alembic/env.py` does this with a `# noqa: F401` import (the only place `Base.metadata` is
+  used at all now — `main.py` no longer touches it).
 - `httpx` and `litellm` are production dependencies (not `dev`) — `HttpContentFetcher` and
   `LLMBookmarkEnricherService` need them at runtime for enrichment, not just in tests. Whichever
   `*_API_KEY` matches `LLM_MODEL`'s provider must be set wherever the backend actually runs; see

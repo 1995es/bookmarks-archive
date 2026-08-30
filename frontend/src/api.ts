@@ -1,6 +1,10 @@
 import type { Bookmark, BookmarkCreateInput, BookmarkId, BookmarkInput, BookmarkType } from "./types";
 
-const BASE_URL: string = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+// Falls back to the current host on port 8000 when VITE_API_URL isn't baked in at build time —
+// assumes the backend is reachable on the same host the frontend was loaded from, which holds for
+// the Tailscale-only prod deployment (no reverse proxy) but not for an arbitrary multi-host setup.
+const BASE_URL: string =
+  import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000`;
 
 async function parseErrorMessage(response: Response): Promise<string> {
   try {

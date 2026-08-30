@@ -114,11 +114,19 @@ see the header.
 
 ## API base URL
 
-`VITE_API_URL`, read in `api.ts`, defaulting to `http://localhost:8000`. It is **compile-time, not
-runtime**: in dev the Vite dev server picks it up as an env var at startup (set on the frontend
-service in `docker-compose.yml`), and in prod it's a Docker build ARG that Vite inlines into the
-static bundle. Pointing prod at a real host means rebuilding the image, not restarting the
-container or setting an env var on it.
+`VITE_API_URL`, read in `api.ts`, is **compile-time, not runtime** when set: in dev the Vite dev
+server picks it up as an env var at startup (set on the frontend service in `docker-compose.yml`),
+and in prod it's a Docker build ARG that Vite inlines into the static bundle. Pointing prod at a
+real host by setting it means rebuilding the image, not restarting the container or setting an env
+var on it.
+
+In prod (`docker-compose.prod.yml`), `VITE_API_URL` is left **unset by default**, and `api.ts`
+falls back to deriving the backend URL from the browser's own `window.location.hostname` at
+runtime, on port 8000. This is what makes the single-host Tailscale deployment work without baking
+in a specific Tailscale hostname/IP at build time — the frontend and backend are assumed to be
+reachable on the same host, so whatever address the browser used to load the page also reaches the
+backend on `:8000`. That assumption breaks for a reverse-proxied or multi-host deployment, which is
+exactly when you'd set `VITE_API_URL` explicitly to override the runtime fallback.
 
 ## Keeping types.ts honest
 

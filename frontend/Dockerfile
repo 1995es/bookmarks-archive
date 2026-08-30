@@ -3,7 +3,9 @@ FROM node:24-alpine AS build
 
 WORKDIR /app
 
-ARG VITE_API_URL=http://localhost:8000
+# Left empty by default: an empty VITE_API_URL makes the app derive the backend URL from the
+# browser's own hostname at runtime (see frontend/src/api.ts) instead of baking one in here.
+ARG VITE_API_URL=
 ENV VITE_API_URL=$VITE_API_URL
 
 COPY package.json package-lock.json* ./

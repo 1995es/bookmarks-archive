@@ -1,3 +1,5 @@
+name: bookmarks-archive-dev
+
 services:
   backend:
     build:
@@ -25,8 +27,6 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    environment:
-      VITE_API_URL: http://localhost:8000
     ports:
       - "5173:5173"
     depends_on:

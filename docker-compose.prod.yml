@@ -1,3 +1,5 @@
+name: bookmarks-archive-prod
+
 services:
   backend:
     build:
@@ -25,8 +27,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      # Leave VITE_API_URL unset to let the frontend derive the backend URL from its own
+      # hostname at runtime (see frontend/src/api.ts); only set it to override that, e.g. for a
+      # reverse-proxied or multi-host deployment.
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+        VITE_API_URL: ${VITE_API_URL:-}
     ports:
       - "80:80"
     restart: unless-stopped

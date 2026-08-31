@@ -13,10 +13,6 @@ dist/
 *.tsbuildinfo
 frontend/vite.config.d.ts
 
-# Local design notes, not part of the published project
-bulk-insert-spec.md
-backend/background-task-plan.md
-
 # General
 .env
 .DS_Store

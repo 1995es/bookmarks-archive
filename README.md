@@ -1,5 +1,7 @@
 # Bookmarks Archive
 
+[![CI](https://github.com/1995es/bookmarks-archive/actions/workflows/ci.yml/badge.svg)](https://github.com/1995es/bookmarks-archive/actions/workflows/ci.yml)
+
 A small self-hosted bookmarks manager: list, add, edit, delete, and filter bookmarks by tag or
 type. FastAPI backend, React + Vite + TypeScript frontend, SQLite storage, Docker Compose for both
 dev and prod.

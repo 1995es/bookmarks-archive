@@ -107,7 +107,7 @@ jobs:
       # All four are load-bearing and all four can rot independently — the dev/prod
       # split is a thing the README advertises, so both halves need proving.
       - name: Build backend (dev)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           file: ./backend/Dockerfile
@@ -116,7 +116,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend-dev
 
       - name: Build backend (prod)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           file: ./backend/Dockerfile.prod
@@ -125,7 +125,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend-prod
 
       - name: Build frontend (dev)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           file: ./frontend/Dockerfile.dev
@@ -134,7 +134,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=frontend-dev
 
       - name: Build frontend (prod)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           file: ./frontend/Dockerfile

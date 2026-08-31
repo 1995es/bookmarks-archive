@@ -28,3 +28,40 @@ export function formatDate(iso: string): string {
     day: "numeric",
   });
 }
+
+/**
+ * How many bulk-add POSTs may be in flight at once. Each one spawns a background
+ * enrichment task on the backend that fetches a page and calls an LLM, all writing
+ * to a single SQLite file — so pasting a few hundred URLs must not become a few
+ * hundred simultaneous requests.
+ */
+export const BULK_CONCURRENCY = 5;
+
+/**
+ * `Promise.allSettled(items.map(worker))` with a cap on how many workers run at
+ * once. Results keep the input order, and — like `allSettled` — a rejection is
+ * reported rather than aborting the rest.
+ */
+export async function mapSettledWithLimit<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results = new Array<PromiseSettledResult<R>>(items.length);
+  let next = 0;
+
+  async function runWorker(): Promise<void> {
+    while (next < items.length) {
+      const index = next++;
+      try {
+        results[index] = { status: "fulfilled", value: await worker(items[index]) };
+      } catch (reason) {
+        results[index] = { status: "rejected", reason };
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, runWorker);
+  await Promise.all(workers);
+  return results;
+}

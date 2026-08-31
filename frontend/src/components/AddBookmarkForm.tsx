@@ -2,7 +2,13 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { createBookmark } from "../api";
 import type { BookmarkCreateInput, BookmarkType } from "../types";
-import { BOOKMARK_TYPES, parseBulkUrls, parseTags } from "../utils";
+import {
+  BOOKMARK_TYPES,
+  BULK_CONCURRENCY,
+  mapSettledWithLimit,
+  parseBulkUrls,
+  parseTags,
+} from "../utils";
 
 interface NewBookmarkForm {
   name: string;
@@ -86,8 +92,8 @@ export default function AddBookmarkForm({ onCreated, onError }: AddBookmarkFormP
     setBulkSubmitting(true);
     setBulkResult(null);
     onError("");
-    const outcomes = await Promise.allSettled(
-      urls.map((url) => createBookmark({ url, description: null, tags: [] })),
+    const outcomes = await mapSettledWithLimit(urls, BULK_CONCURRENCY, (url) =>
+      createBookmark({ url, description: null, tags: [] }),
     );
     const failed: BulkFailure[] = [];
     let succeeded = 0;

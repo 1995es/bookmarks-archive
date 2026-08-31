@@ -1,4 +1,10 @@
-import type { Bookmark, BookmarkCreateInput, BookmarkId, BookmarkInput, BookmarkType } from "./types";
+import type {
+  Bookmark,
+  BookmarkCreateInput,
+  BookmarkId,
+  BookmarkInput,
+  BookmarkType,
+} from "./types";
 
 // Falls back to the current host on port 8000 when VITE_API_URL isn't baked in at build time —
 // assumes the backend is reachable on the same host the frontend was loaded from, which holds for

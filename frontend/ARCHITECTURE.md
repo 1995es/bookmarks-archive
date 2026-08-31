@@ -11,25 +11,38 @@ For the system-level picture see the repo-root [`ARCHITECTURE.md`](../ARCHITECTU
 ```bash
 npm install
 npm run dev        # vite --host 0.0.0.0, port 5173
-npm run typecheck  # tsc --noEmit
-npm run build      # tsc -b && vite build → dist/
+npm run lint         # eslint
+npm run format:check # prettier --check src
+npm run typecheck    # tsc -b, plus the tests under tsconfig.test.json
+npm run test         # vitest, watch mode
+npm run test:run     # vitest, once
+npm run build        # tsc -b && vite build → dist/
 npm run preview
 ```
 
-There is no test runner and no linter here. `npm run typecheck` and `npm run build` are the full
-check. `tsconfig.json` is strict and enables `noUnusedLocals`/`noUnusedParameters`, so a dead
-variable breaks the build rather than just showing up in the editor.
+Tests are Vitest + Testing Library, configured in the `test` block of `vite.config.ts` so there is
+one config to look at rather than a second toolchain. They live next to what they cover, as
+`*.test.ts`/`*.test.tsx`. `tsconfig.json` excludes them — `npm run build` would otherwise typecheck
+them against the app config and trip over the test globals — and `tsconfig.test.json` picks them
+back up, so `npm run typecheck` still covers both. `tsconfig.json` is strict and enables
+`noUnusedLocals`/`noUnusedParameters`, so a dead variable breaks the build rather than just showing
+up in the editor.
 
 ## Structure
 
-Four files under `src/`, and that is intended to stay small:
+A handful of files under `src/`, and that is intended to stay small:
 
 | File | Role |
 |---|---|
-| `App.tsx` | The entire UI as one component: table view, add form, bulk add, inline row editing, delete, filters, sorting, pagination. |
+| `App.tsx` | Composition root: owns the list, filters, sort, pagination, the enrichment poll, and the selected-bookmark id. |
+| `components/` | `AddBookmarkForm`, `FiltersBar`, `BookmarksTable`, `Pagination`, `BookmarkDetailModal`, `ErrorBanner`. |
 | `api.ts` | `fetch` wrappers, one per endpoint, plus shared error handling. |
 | `types.ts` | Hand-written mirror of the backend's Pydantic schemas. |
+| `utils.ts` | Input parsing (`parseTags`, `parseBulkUrls`), `formatDate`, and the bulk-add worker pool. |
 | `index.css` | Plain CSS. Notion-style: quiet borders, generous whitespace. |
+
+Tests sit beside the file they cover, as `*.test.ts`/`*.test.tsx`; the heaviest are on `api.ts`
+(the whole backend contract), the out-of-order guard below, and bulk add.
 
 ## Data flow
 
@@ -61,9 +74,15 @@ the next real `refresh()` will surface anything genuinely broken.
 ### Bulk add
 
 The add form has a bulk mode that takes a newline-separated list of URLs. There is no bulk endpoint
-on the backend: it fires one `POST /bookmarks` per URL through `Promise.allSettled` and reports how
-many succeeded. Failures are listed with their error message and left in the textarea, so a retry
-resubmits only what didn't land — usually the duplicates the server rejected with a `409`.
+on the backend: it fires one `POST /bookmarks` per URL and reports how many succeeded. Failures are
+listed with their error message and left in the textarea, so a retry resubmits only what didn't
+land — usually the duplicates the server rejected with a `409`.
+
+The requests go through `mapSettledWithLimit` (`utils.ts`), a small worker pool that keeps at most
+`BULK_CONCURRENCY` (5) POSTs in flight while preserving `Promise.allSettled`'s semantics. Each
+create schedules a background enrichment task that fetches a page and calls an LLM against a single
+SQLite file, so a pasted list of a few hundred URLs must not arrive as a few hundred simultaneous
+requests.
 
 ## Talking to the API
 

@@ -19,6 +19,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test"],
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

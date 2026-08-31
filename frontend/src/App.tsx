@@ -60,10 +60,16 @@ export default function App() {
   }, [filterTag, filterType, sortBy, sortOrder, offset]);
 
   useEffect(() => {
+    // Deliberate: refresh() is the app's single fetch path and setting `loading`/`bookmarks`
+    // from it is the point. There is no external store to subscribe to instead.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
 
   useEffect(() => {
+    // Deliberate: pagination is server-side, so a changed filter/sort must rewind to the first
+    // page before the refresh() effect above re-queries.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOffset(0);
   }, [filterTag, filterType, sortBy, sortOrder]);
 
@@ -115,10 +121,7 @@ export default function App() {
 
       {error && <ErrorBanner message={error} />}
 
-      <AddBookmarkForm
-        onCreated={refresh}
-        onError={(message) => setError(message || null)}
-      />
+      <AddBookmarkForm onCreated={refresh} onError={(message) => setError(message || null)} />
 
       <FiltersBar
         filterTag={filterTag}
@@ -129,9 +132,7 @@ export default function App() {
 
       {loading && <div className="status-line">Loading…</div>}
 
-      {!loading && bookmarks.length === 0 && (
-        <div className="status-line">No bookmarks yet</div>
-      )}
+      {!loading && bookmarks.length === 0 && <div className="status-line">No bookmarks yet</div>}
 
       {!loading && bookmarks.length > 0 && (
         <BookmarksTable
@@ -144,12 +145,7 @@ export default function App() {
       )}
 
       {!loading && total > 0 && (
-        <Pagination
-          offset={offset}
-          total={total}
-          pageSize={PAGE_SIZE}
-          onOffsetChange={setOffset}
-        />
+        <Pagination offset={offset} total={total} pageSize={PAGE_SIZE} onOffsetChange={setOffset} />
       )}
 
       {selectedBookmark && (

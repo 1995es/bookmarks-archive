@@ -108,7 +108,7 @@ Checks before opening a PR:
 
 ```bash
 cd backend && uv run pytest && uv run ruff check . && uv run ruff format --check .
-cd frontend && npm run typecheck && npm run build
+cd frontend && npm run lint && npm run format:check && npm run typecheck && npm run test:run && npm run build
 ```
 
 `frontend/src/types.ts` is a hand-maintained mirror of the backend's Pydantic schemas — nothing

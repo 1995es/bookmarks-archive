@@ -10,14 +10,30 @@ cross-cutting concerns (Docker, the API contract, stale design docs).
 ```bash
 npm install
 npm run dev        # vite --host 0.0.0.0, port 5173
-npm run typecheck  # tsc --noEmit — the only "test" here; there is no test runner
-npm run build      # tsc -b && vite build → dist/
+npm run lint         # eslint
+npm run format:check # prettier --check src
+npm run typecheck    # tsc -b, plus the tests under tsconfig.test.json
+npm run test         # vitest, watch mode
+npm run test:run     # vitest, once
+npm run build        # tsc -b && vite build → dist/
 npm run preview
 ```
 
-There are no tests and no linter. `npm run typecheck` and `npm run build` are the full check.
+All five are what CI runs; run them before calling a change done.
+
+Tests are Vitest + Testing Library. The config is the `test` block inside `vite.config.ts` — don't
+add a separate `vitest.config.ts`. Test files sit next to what they cover (`src/api.test.ts`,
+`src/components/AddBookmarkForm.test.tsx`, …) and `src/test/setup.ts` pulls in jest-dom's matchers.
+
+`tsconfig.json` **excludes** the test files, because `npm run build` runs `tsc -b` first and would
+otherwise fail on the test globals; `tsconfig.test.json` includes them, and `npm run typecheck`
+runs both, so a type error in a test still fails CI. Adding a test file needs no config change;
+moving to a new suffix does.
+
 `tsconfig.json` is strict and includes `noUnusedLocals`/`noUnusedParameters`, so dead variables
-break the build, not just the editor.
+break the build, not just the editor. `eslint-plugin-react-hooks` runs in its recommended
+configuration; `App.tsx`'s two deliberate `setState`-in-effect calls carry an inline disable with
+the reason, so keep the rule on rather than widening those exemptions.
 
 ## Structure
 
@@ -98,8 +114,11 @@ Three behaviors are easy to break by accident:
   deliberately swallows its errors — it must not clobber the error banner with a transient failure
   the user didn't cause.
 - **Bulk add loops `POST /bookmarks` client-side.** There is no bulk endpoint and shouldn't be one.
-  `Promise.allSettled` over the parsed URLs, then the failures (usually `409` duplicates) are
-  listed with their messages and written back into the textarea so a resubmit retries only those.
+  The parsed URLs go through `mapSettledWithLimit` (`utils.ts`), a worker pool capped at
+  `BULK_CONCURRENCY` (5) with `Promise.allSettled`'s semantics — every create schedules a
+  background LLM call against one SQLite file, so an unbounded fan-out is a real hazard, not a
+  hypothetical one. The failures (usually `409` duplicates) are then listed with their messages and
+  written back into the textarea so a resubmit retries only those.
 
 `api.ts` centralizes error handling in `request<T>()`: non-2xx responses are unwrapped from
 FastAPI's `{"detail": "..."}` shape and thrown as an `Error`; 204 returns `undefined`. Handlers in

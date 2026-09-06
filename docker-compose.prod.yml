@@ -6,7 +6,11 @@ services:
       context: ./backend
       dockerfile: Dockerfile.prod
     volumes:
-      - bookmarks_data:/data
+      # Bind mount to a fixed host path so backups have a stable, predictable target.
+      # The image runs as non-root (uid:gid 999:999), so the host directory must be owned by it:
+      #   mkdir -p /srv/bookmarks/data && chown -R 999:999 /srv/bookmarks/data
+      # Override the host side with BOOKMARKS_DATA_DIR if you keep the database elsewhere.
+      - ${BOOKMARKS_DATA_DIR:-/srv/bookmarks/data}:/data
     environment:
       DATABASE_URL: sqlite:////data/bookmarks.db
       # LLM_MODEL selects the enrichment provider (default: gemini/gemini-3.5-flash); only the
@@ -35,6 +39,3 @@ services:
     ports:
       - "80:80"
     restart: unless-stopped
-
-volumes:
-  bookmarks_data:

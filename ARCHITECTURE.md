@@ -127,12 +127,14 @@ Dev and prod are two Compose files over the same two services.
 |---|---|---|
 | Backend | uvicorn `--reload`, source bind-mounted, root | uvicorn, no mounts, non-root |
 | Frontend | Vite dev server on `:5173` | static build served by nginx on `:80` |
-| Data | host bind mount `./data` at `/data` | named volume `bookmarks_data` at `/data` |
+| Data | host bind mount `./data` at `/data` | host bind mount `/srv/bookmarks-archive/data` at `/data` |
 
 Since SQLite is a file rather than a service, persistence is entirely that mount. Dev uses a bind
 mount so `./data/bookmarks.db` is directly reachable from the host — a local `sqlite3` or a GUI
-tool can open it while the stack runs. Prod uses a named volume instead, because the prod image
-runs as non-root and a host bind mount would need matching UIDs. The two modes no longer share
+tool can open it while the stack runs. Prod bind-mounts a fixed path outside the repo
+(`/srv/bookmarks-archive/data`, overridable with `BOOKMARKS_DATA_DIR`) so the database has a stable
+location for backups; since the prod image runs as non-root, that directory must be owned by
+uid:gid `999:999`. The two modes no longer share
 storage, so there's no risk of the "readonly database" error a shared volume used to cause.
 
 `VITE_API_URL` is **compile-time**, not runtime: in prod it's baked into the static bundle via a

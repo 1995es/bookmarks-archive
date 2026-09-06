@@ -80,11 +80,17 @@ In dev, that file lives at `./data/bookmarks.db` on the host, bind-mounted into 
 sqlite3 ./data/bookmarks.db
 ```
 
-In prod, persistence instead comes from the named Docker volume `bookmarks_data`, mounted at
-`/data`, since the prod image runs as a non-root user and a host bind mount would need matching
-UIDs. It survives `docker compose down`; only `docker compose down -v` or `docker volume rm`
-removes it. Dev and prod no longer share storage, so switching between modes doesn't risk the
-"readonly database" error a shared volume used to cause.
+In prod, the database lives at `/srv/bookmarks-archive/data/bookmarks.db` on the host (set
+`BOOKMARKS_DATA_DIR` to put it elsewhere), bind-mounted at `/data`. Create that directory before
+the first start and give it to the non-root user the prod image runs as:
+
+```bash
+sudo mkdir -p /srv/bookmarks-archive/data && sudo chown -R 999:999 /srv/bookmarks-archive/data
+```
+
+Without that `chown` the backend fails with a "readonly database" error. The file is a plain path
+on the host, so backups and `sqlite3` can reach it directly, and nothing in `docker compose down`
+removes it.
 
 ### Running without Docker
 

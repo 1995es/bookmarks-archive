@@ -29,10 +29,12 @@ docker compose -f docker-compose.prod.yml up --build # prod: nginx static build,
 
 There is no database container — SQLite is a file the backend process opens directly. Dev bind-mounts
 the host directory `./data` at `/data`, so `./data/bookmarks.db` is a real file you can query with a
-local `sqlite3` or a GUI tool while the stack is running. Prod instead persists to the named volume
-`bookmarks_data` mounted at `/data`, since the prod image runs as non-root and a host bind mount
-would need matching UIDs. The two modes no longer share storage, so switching between them can't
-produce the "readonly database" errors that a shared volume used to cause.
+local `sqlite3` or a GUI tool while the stack is running. Prod bind-mounts a fixed host path
+(`/srv/bookmarks-archive/data` by default, overridable with `BOOKMARKS_DATA_DIR`) at `/data`, so the
+database file sits at a stable, predictable location a backup job can target. The prod image runs
+as non-root, so that host directory must be owned by uid:gid `999:999` or the backend gets
+"readonly database" errors. The two modes still point at different paths, so switching between
+them can't make them fight over one file.
 
 The dev frontend service declares an anonymous volume over `/app/node_modules` on purpose, so the
 bind-mounted host `./frontend` doesn't shadow the install `npm ci` did inside the image. Don't

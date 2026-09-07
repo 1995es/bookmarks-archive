@@ -154,7 +154,9 @@ overwritten, or overwrite it. For a single-user local app that's not worth a loc
 
 ### Model configuration
 
-`LLM_MODEL` takes litellm's `provider/model` form and defaults to `gemini/gemini-3.5-flash`. At
+`LLM_MODEL` takes litellm's `provider/model` form and defaults to `gemini/gemini-3.5-flash`.
+OpenRouter names the underlying model as a third segment (`openrouter/anthropic/claude-sonnet-4.5`),
+which the provider lookup handles unchanged. At
 startup `llm_config.resolve_llm_model()` asks litellm which provider that names and checks the
 matching `*_API_KEY` environment variable is present, raising `MissingLLMCredentialsError` if not.
 A misconfigured model or a missing key therefore crashes the app on boot rather than silently

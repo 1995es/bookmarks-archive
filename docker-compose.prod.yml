@@ -23,6 +23,7 @@ services:
       XAI_API_KEY: ${XAI_API_KEY:-}
       REPLICATE_API_KEY: ${REPLICATE_API_KEY:-}
       TOGETHERAI_API_KEY: ${TOGETHERAI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     ports:
       - "8000:8000"
     restart: unless-stopped

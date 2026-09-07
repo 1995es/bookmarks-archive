@@ -50,6 +50,11 @@ cp .env.example .env
 `anthropic/claude-sonnet-5`) — set that provider's API key instead of `GEMINI_API_KEY`. The backend
 validates this at startup and refuses to boot if the configured model's key is missing.
 
+OpenRouter works too, with the underlying model as a third segment — e.g.
+`openrouter/anthropic/claude-sonnet-4.5`, with `OPENROUTER_API_KEY` set. Enrichment asks for
+structured JSON output, so pick a model that supports it; ones that don't will fail every
+enrichment rather than degrading.
+
 **Dev** — hot reload on both services:
 
 ```bash

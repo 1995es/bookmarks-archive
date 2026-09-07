@@ -20,6 +20,7 @@ _PROVIDER_API_KEY_ENV = {
     "xai": "XAI_API_KEY",
     "replicate": "REPLICATE_API_KEY",
     "together_ai": "TOGETHERAI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
 }
 
 

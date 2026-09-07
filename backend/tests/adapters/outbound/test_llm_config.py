@@ -43,3 +43,21 @@ def test_resolve_llm_model_succeeds_when_matching_key_is_set(
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
     assert resolve_llm_model() == "anthropic/claude-sonnet-5"
+
+
+def test_resolve_llm_model_handles_openrouters_three_segment_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # OpenRouter models carry the underlying provider too, so the string has three
+    # segments rather than the usual two.
+    monkeypatch.setenv("LLM_MODEL", "openrouter/anthropic/claude-sonnet-4.5")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+    with pytest.raises(MissingLLMCredentialsError) as exc_info:
+        resolve_llm_model()
+
+    assert exc_info.value.env_var == "OPENROUTER_API_KEY"
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+
+    assert resolve_llm_model() == "openrouter/anthropic/claude-sonnet-4.5"

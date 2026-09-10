@@ -54,7 +54,9 @@ export default function BookmarksTable({
                 ))}
               </div>
             </td>
-            <td>{bookmark.type}</td>
+            <td>
+              <span className="type-badge">{bookmark.type}</span>
+            </td>
             <td className="row-actions">
               <button
                 type="button"

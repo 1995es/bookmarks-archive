@@ -235,7 +235,7 @@ export default function BookmarkDetailModal({
 
             <div className="detail-row">
               <span className="detail-label">Type</span>
-              <span>{bookmark.type}</span>
+              <span className="type-badge">{bookmark.type}</span>
             </div>
 
             <div className="modal-actions">

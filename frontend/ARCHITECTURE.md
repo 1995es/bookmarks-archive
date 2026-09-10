@@ -35,11 +35,56 @@ A handful of files under `src/`, and that is intended to stay small:
 | File | Role |
 |---|---|
 | `App.tsx` | Composition root: owns the list, filters, sort, pagination, the enrichment poll, and the selected-bookmark id. |
-| `components/` | `AddBookmarkForm`, `FiltersBar`, `BookmarksTable`, `Pagination`, `BookmarkDetailModal`, `ErrorBanner`. |
+| `components/` | `AddBookmarkForm`, `FiltersBar`, `SortControl`, `BookmarksTable`, `BookmarksList`, `Pagination`, `BookmarkDetailModal`, `ErrorBanner`. |
+| `useMediaQuery.ts` | Subscribes to a CSS media query; drives the table/card layout switch below. |
 | `api.ts` | `fetch` wrappers, one per endpoint, plus shared error handling. |
 | `types.ts` | Hand-written mirror of the backend's Pydantic schemas. |
 | `utils.ts` | Input parsing (`parseTags`, `parseBulkUrls`), `formatDate`, and the bulk-add worker pool. |
-| `index.css` | Plain CSS. Notion-style: quiet borders, generous whitespace. |
+| `index.css` | Plain CSS, no framework. Design tokens in `:root` plus every component rule — see [Design system](#design-system). |
+
+### Design system
+
+The interface follows an "ink on cold-pressed paper" language: a white canvas, near-black ink,
+1px hairline rules in a single light grey, and shadows soft enough to read as paper grain. Type is
+a single family (Inter) at three weights, tracked -0.025em at every size.
+
+The defining choice is the **absence of a brand colour** — hierarchy is carried by type weight and
+four steps of grey:
+
+| Token | Value | Where it is used |
+|---|---|---|
+| `--color-pure-paper` | `#ffffff` | Page and card surfaces alike |
+| `--color-ink` | `#262626` | Headings, links, emphasis — and the one filled button |
+| `--color-ash` | `#686868` | Body copy, table cells |
+| `--color-muted` | `#737373` | Captions, metadata, pagination status |
+| `--color-fog` | `#929292` | Placeholders, disabled labels |
+| `--color-soft-mist` | `#ededed` | Every border, divider, input outline and table rule |
+| `--color-mint-whisper` | `#ecfdf5` | The `done` status badge only |
+| `--color-rose-whisper` | `#fef2f2` | Errors and failed enrichment (an addition — the reference palette has no negative state) |
+
+Cards are white on a white page, distinguished only by a 1px hairline, a 14px radius and a 1px
+shadow. Radii are a closed set (4 / 8 / 14 / 18 / pill), as are the three shadows; values outside
+those sets read as a different system.
+
+Tokens are defined once in `:root` and consumed by every rule below, so restyling starts there.
+`frontend/CLAUDE.md` carries the working rules for staying inside the system.
+
+### Two layouts
+
+Under 640px the five-column table does not fit — it overflowed the viewport and pushed the page
+controls thousands of pixels below the fold. `App.tsx` therefore picks a layout with
+`useMediaQuery("(max-width: 640px)")`:
+
+| | Wide | Narrow |
+|---|---|---|
+| List | `BookmarksTable` | `BookmarksList` (one card per bookmark, description clamped to two lines) |
+| Sort | click the `Name` column header | `SortControl`, a field+direction select |
+| Pagination | `Pagination` below the list | `Pagination compact` inside a sticky control bar above it |
+
+The switch is made in JS rather than by rendering both and hiding one with CSS: two copies of every
+bookmark would double the markup and make accessibility and test queries ambiguous. The trade-off
+is that `window.matchMedia` must exist wherever `App` renders — `src/test/setup.ts` stubs it for
+jsdom, defaulting to the wide layout.
 
 Tests sit beside the file they cover, as `*.test.ts`/`*.test.tsx`; the heaviest are on `api.ts`
 (the whole backend contract), the out-of-order guard below, and bulk add.

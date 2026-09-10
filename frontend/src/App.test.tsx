@@ -138,6 +138,82 @@ describe("filters", () => {
   });
 });
 
+describe("narrow-viewport layout", () => {
+  /** Make every media query match, i.e. render as if on a phone. */
+  function matchNarrowViewport() {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+    return () => {
+      window.matchMedia = original;
+    };
+  }
+
+  it("renders cards instead of the table, and offers a sort control", async () => {
+    const restore = matchNarrowViewport();
+    try {
+      listBookmarksMock.mockResolvedValue(page(["a"]));
+
+      render(<App />);
+      await screen.findByRole("link", { name: "a" });
+
+      expect(screen.queryByRole("table")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /view details for a/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/sort by/i)).toBeInTheDocument();
+    } finally {
+      restore();
+    }
+  });
+
+  it("re-queries with the chosen sort field and direction", async () => {
+    const restore = matchNarrowViewport();
+    try {
+      listBookmarksMock.mockResolvedValue(page(["a"]));
+
+      const user = userEvent.setup();
+      render(<App />);
+      await screen.findByRole("link", { name: "a" });
+
+      await user.selectOptions(screen.getByLabelText(/sort by/i), "name:asc");
+
+      await waitFor(() => {
+        const params = lastParams();
+        expect(params.sortBy).toBe("name");
+        expect(params.sortOrder).toBe("asc");
+      });
+    } finally {
+      restore();
+    }
+  });
+
+  it("keeps pagination reachable without scrolling to the end of the list", async () => {
+    const restore = matchNarrowViewport();
+    try {
+      listBookmarksMock.mockResolvedValue({ items: page(["a"]).items, total: 40 });
+
+      const user = userEvent.setup();
+      render(<App />);
+      await screen.findByRole("link", { name: "a" });
+
+      // The compact pagination lives in the sticky control bar, above the list.
+      expect(screen.getByText("1–20 of 40")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /next page/i }));
+
+      await waitFor(() => expect(lastParams().offset).toBe(20));
+    } finally {
+      restore();
+    }
+  });
+});
+
 function lastParams(): ListBookmarksParams {
   return listBookmarksMock.mock.calls.at(-1)![0] ?? {};
 }

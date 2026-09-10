@@ -146,7 +146,8 @@ export default function AddBookmarkForm({ onCreated, onError }: AddBookmarkFormP
             )}
           </div>
         )}
-        <button type="submit" disabled={addDisabled}>
+        {/* The one filled action on the page — see the design-system rules in CLAUDE.md. */}
+        <button type="submit" className="button-primary" disabled={addDisabled}>
           {bulkMode ? "Add all" : "Add"}
         </button>
       </div>

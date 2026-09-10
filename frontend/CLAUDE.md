@@ -44,15 +44,21 @@ src/
 ├── api.ts                           fetch wrappers. No data-fetching library.
 ├── types.ts                         hand-written mirror of the backend's Pydantic schemas.
 ├── utils.ts                         parseTags/parseBulkUrls/formatDate, BOOKMARK_TYPES, PAGE_SIZE
-├── index.css                        plain CSS, no framework. Notion-style: quiet borders,
-│                                     generous whitespace.
+├── index.css                        plain CSS, no framework. The whole design system: tokens
+│                                     in :root, then component rules. See "Design system" below.
+├── useMediaQuery.ts                 useSyncExternalStore wrapper over window.matchMedia; drives
+│                                     the wide/narrow layout switch
 └── components/
     ├── AddBookmarkForm.tsx          add form incl. bulk-URL mode; owns its own form state,
     │                                calls createBookmark itself, reports back via onCreated/onError
     ├── FiltersBar.tsx               tag/type filter controls (controlled by App)
-    ├── BookmarksTable.tsx           read-only table: name, description, tags, type, and one
-    │                                eye-icon button per row that opens the detail modal
-    ├── Pagination.tsx               prev/next + range display (controlled by App)
+    ├── SortControl.tsx              narrow-viewport sort: one select carrying field + direction
+    ├── BookmarksTable.tsx           read-only table (wide): name, description, tags, type, and
+    │                                one eye-icon button per row that opens the detail modal
+    ├── BookmarksList.tsx            read-only card list (narrow): the same data stacked, with
+    │                                the whole card opening the detail modal
+    ├── Pagination.tsx               prev/next + range display (controlled by App); `compact`
+    │                                renders chevrons for the sticky mobile bar
     └── BookmarkDetailModal.tsx      per-bookmark modal: status badge + retry (when FAILED),
                                      url, date added, description, tags, type, and Edit/Delete —
                                      owns its own edit-draft/saving/deleting/retrying state
@@ -62,6 +68,66 @@ Don't reach for a state manager, data-fetching library, or component library; th
 justify one. Keep components presentational where possible — `App.tsx` remains the only place
 that talks to `listBookmarks`/holds the polling loop, so there's one source of truth for what's
 on screen.
+
+## Design system
+
+`index.css` implements an "ink on cold-pressed paper" system (Audyr-style): white stock, near-black
+ink, hairline rules, and shadows soft enough to read as paper grain rather than elevation. Tokens
+live in `:root` — colours, the Inter type scale, a 4px spacing scale, radii and the three shadows —
+and every rule below consumes them, so a restyle starts there rather than in a component.
+
+Four rules define the look:
+
+- **No brand accent.** There is no primary colour. Hierarchy comes from type weight and four steps
+  of grey: `--color-ink` for headings, links and emphasis; `--color-ash` for body copy and table
+  cells; `--color-muted` for captions and metadata; `--color-fog` for placeholders. Adding a
+  brand hue is the one change that would break the system outright.
+- **One fill.** `--color-ink` (#262626) is the only filled button background — the Add action's
+  `.button-primary`. Every other button is the ghost outline default. That single dark rectangle
+  is the page's only visual anchor.
+- **Hairlines carry structure.** `--color-soft-mist` (#ededed) at 1px is every border, divider,
+  input outline and table rule. Cards are white-on-white, separated only by that hairline, a 14px
+  radius and `--shadow-card`.
+- **One tracking value.** `--tracking` (-0.025em) is set once on `body` and inherited everywhere,
+  so a 12px label and a 30px heading share the same optical compression. Do not override it per
+  component — that uniformity is what makes the system feel cohesive rather than merely consistent.
+
+Radii are a closed set: 4px inputs and buttons, 8px images, 14px cards, 18px large panels, pill
+badges. No intermediate values — a 6px or 12px radius reads as a different system.
+
+Shadows are likewise closed: `--shadow-card` on cards, `--shadow-button` (an inset highlight plus a
+1px drop) on the filled button only, and `--shadow-panel` on the modal. Nothing heavier.
+
+Two additions to the reference palette were unavoidable. `--color-rose-whisper`/`--color-rose-ink`
+carry destructive and error states (error banner, failed enrichment, bulk-add failures), built as
+the mint badge's mirror image so they stay inside the badge vocabulary. And the 48px display size
+is unused: this is a tool, not a landing page, so `h1` takes `--text-heading-lg` (30px) and drops
+to 24px under 640px.
+
+Inter is loaded from Google Fonts in `index.html` with `cv11`/`ss01` enabled globally via
+`font-feature-settings` on `body`. The stack falls back to the system sans, which matters for a
+self-hosted LAN install with no outbound network.
+
+## Two layouts
+
+Under 640px the table's five columns overflow the viewport and the pagination ends up thousands of
+pixels below the fold, so `App.tsx` swaps layouts on `useMediaQuery("(max-width: 640px)")`:
+`BookmarksList` cards instead of `BookmarksTable`, a `SortControl` select instead of the clickable
+`Name` header, and the filters + sort + a `compact` `Pagination` together in a sticky bar above the
+list.
+
+Both layouts are never in the DOM at once — the choice is made in JS, not by rendering both and
+hiding one with CSS, so there is exactly one copy of each bookmark for accessibility and test
+queries to find. The cost is that `window.matchMedia` must exist wherever `App` renders;
+`src/test/setup.ts` stubs it for jsdom and defaults to the wide layout, so a test that wants cards
+stubs `window.matchMedia` itself (see the `narrow-viewport layout` block in `App.test.tsx`).
+
+`BookmarksList`'s cards use a stretched transparent button (`.bookmark-card-open`) covering the
+card, with `pointer-events: none` on the content and the name link opting back in — so a tap
+anywhere opens the modal while the name still opens the URL, without nesting a link inside a
+button. Changing pages scrolls back to the top (`goToOffset` in `App.tsx`); with sticky controls
+you would otherwise stay stranded mid-list on a page that silently changed under you. That scroll
+is instant, not smooth: a smooth scroll races the re-render that shortens the page under it.
 
 ## The detail modal
 

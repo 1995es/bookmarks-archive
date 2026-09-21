@@ -1,8 +1,10 @@
 import type { Bookmark, BookmarkId } from "../types";
 import type { BookmarkSortBy } from "../api";
+import type { ColumnVisibility } from "../useColumnVisibility";
 
 interface BookmarksTableProps {
   bookmarks: Bookmark[];
+  visibility: ColumnVisibility;
   sortBy: BookmarkSortBy;
   sortOrder: "asc" | "desc";
   onToggleSort: (column: BookmarkSortBy) => void;
@@ -11,6 +13,7 @@ interface BookmarksTableProps {
 
 export default function BookmarksTable({
   bookmarks,
+  visibility,
   sortBy,
   sortOrder,
   onToggleSort,
@@ -30,10 +33,10 @@ export default function BookmarksTable({
           <th className="sortable" onClick={() => onToggleSort("name")}>
             Name{sortIndicator("name")}
           </th>
-          <th>Description</th>
-          <th>Tags</th>
-          <th>Type</th>
-          <th></th>
+          {visibility.description && <th className="col-description">Description</th>}
+          {visibility.tags && <th>Tags</th>}
+          {visibility.type && <th>Type</th>}
+          <th className="row-actions"></th>
         </tr>
       </thead>
       <tbody>
@@ -44,19 +47,25 @@ export default function BookmarksTable({
                 {bookmark.name}
               </a>
             </td>
-            <td>{bookmark.description ?? ""}</td>
-            <td>
-              <div className="tags">
-                {bookmark.tags.map((tag) => (
-                  <span className="tag-pill" key={tag}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </td>
-            <td>
-              <span className="type-badge">{bookmark.type}</span>
-            </td>
+            {visibility.description && (
+              <td className="col-description">{bookmark.description ?? ""}</td>
+            )}
+            {visibility.tags && (
+              <td>
+                <div className="tags">
+                  {bookmark.tags.map((tag) => (
+                    <span className="tag-pill" key={tag}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </td>
+            )}
+            {visibility.type && (
+              <td>
+                <span className="type-badge">{bookmark.type}</span>
+              </td>
+            )}
             <td className="row-actions">
               <button
                 type="button"

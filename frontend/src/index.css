@@ -328,6 +328,63 @@ button:disabled {
   flex: 0 1 240px;
 }
 
+/* Columns menu: a popover of checkboxes riding at the end of the filters row. The panel is a
+   card — hairline, 14px radius, --shadow-card — so it reads as a sheet lifted off the page
+   rather than a menu with its own chrome. */
+.columns-control {
+  position: relative;
+  margin-left: auto;
+}
+
+.columns-menu {
+  position: absolute;
+  top: calc(100% + var(--spacing-4));
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  min-width: 168px;
+  padding: var(--spacing-12);
+  background: var(--color-pure-paper);
+  border: 1px solid var(--color-soft-mist);
+  border-radius: var(--radius-cards);
+  box-shadow: var(--shadow-card);
+}
+
+.columns-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-8);
+}
+
+.columns-chevron {
+  color: var(--color-fog);
+  transition: transform 0.12s ease;
+}
+
+.columns-trigger[aria-expanded="true"] .columns-chevron {
+  transform: rotate(180deg);
+}
+
+.columns-menu-label {
+  margin: 0;
+  padding-bottom: var(--spacing-8);
+  border-bottom: 1px solid var(--color-soft-mist);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-ash);
+}
+
+.columns-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  font-size: var(--text-body-sm);
+  color: var(--color-ash);
+  cursor: pointer;
+}
+
 .status-line {
   padding: var(--spacing-20) 0;
   color: var(--color-muted);
@@ -397,9 +454,20 @@ button:disabled {
   background: #fafafa;
 }
 
-.bookmarks-table td:nth-child(2) {
+/* Targeted by class, not by position: the description, tags and type columns can each be hidden
+   from the Columns menu, so an nth-child rule would land on whichever column happened to shift
+   into that slot. */
+.bookmarks-table td.col-description {
   width: 40%;
   overflow-wrap: break-word;
+}
+
+/* The actions column is squeezed to its content and pinned right, so the eye button stays at the
+   table's right edge even when every optional column is hidden and `Name` is the only one left. */
+.bookmarks-table th.row-actions,
+.bookmarks-table td.row-actions {
+  width: 1%;
+  text-align: right;
 }
 
 .bookmarks-table td a {

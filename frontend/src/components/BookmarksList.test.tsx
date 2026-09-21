@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import BookmarksList from "./BookmarksList";
 import type { Bookmark } from "../types";
+import { DEFAULT_COLUMN_VISIBILITY } from "../useColumnVisibility";
 
 function bookmark(overrides: Partial<Bookmark> = {}): Bookmark {
   return {
@@ -20,7 +21,13 @@ function bookmark(overrides: Partial<Bookmark> = {}): Bookmark {
 
 describe("BookmarksList", () => {
   it("renders the name as a link to the bookmark's url", () => {
-    render(<BookmarksList bookmarks={[bookmark()]} onOpenDetail={vi.fn()} />);
+    render(
+      <BookmarksList
+        visibility={DEFAULT_COLUMN_VISIBILITY}
+        bookmarks={[bookmark()]}
+        onOpenDetail={vi.fn()}
+      />,
+    );
 
     expect(screen.getByRole("link", { name: "Example post" })).toHaveAttribute(
       "href",
@@ -29,7 +36,13 @@ describe("BookmarksList", () => {
   });
 
   it("renders the description, type and tags", () => {
-    render(<BookmarksList bookmarks={[bookmark()]} onOpenDetail={vi.fn()} />);
+    render(
+      <BookmarksList
+        visibility={DEFAULT_COLUMN_VISIBILITY}
+        bookmarks={[bookmark()]}
+        onOpenDetail={vi.fn()}
+      />,
+    );
 
     expect(screen.getByText("A description")).toBeInTheDocument();
     expect(screen.getByText("post")).toBeInTheDocument();
@@ -38,7 +51,13 @@ describe("BookmarksList", () => {
   });
 
   it("omits the description paragraph when there is none", () => {
-    render(<BookmarksList bookmarks={[bookmark({ description: null })]} onOpenDetail={vi.fn()} />);
+    render(
+      <BookmarksList
+        visibility={DEFAULT_COLUMN_VISIBILITY}
+        bookmarks={[bookmark({ description: null })]}
+        onOpenDetail={vi.fn()}
+      />,
+    );
 
     expect(screen.queryByText("A description")).not.toBeInTheDocument();
   });
@@ -46,7 +65,13 @@ describe("BookmarksList", () => {
   it("opens the detail modal from the card-wide button", async () => {
     const onOpenDetail = vi.fn();
     const user = userEvent.setup();
-    render(<BookmarksList bookmarks={[bookmark()]} onOpenDetail={onOpenDetail} />);
+    render(
+      <BookmarksList
+        visibility={DEFAULT_COLUMN_VISIBILITY}
+        bookmarks={[bookmark()]}
+        onOpenDetail={onOpenDetail}
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: /view details for example post/i }));
 

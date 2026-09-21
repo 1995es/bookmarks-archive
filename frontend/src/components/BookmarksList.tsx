@@ -1,7 +1,9 @@
 import type { Bookmark, BookmarkId } from "../types";
+import type { ColumnVisibility } from "../useColumnVisibility";
 
 interface BookmarksListProps {
   bookmarks: Bookmark[];
+  visibility: ColumnVisibility;
   onOpenDetail: (id: BookmarkId) => void;
 }
 
@@ -10,7 +12,7 @@ interface BookmarksListProps {
  * that don't fit. Same two affordances as a table row — the name opens the URL, everything else
  * opens the detail modal — but the modal target is the whole card rather than a 16px icon.
  */
-export default function BookmarksList({ bookmarks, onOpenDetail }: BookmarksListProps) {
+export default function BookmarksList({ bookmarks, visibility, onOpenDetail }: BookmarksListProps) {
   return (
     <ul className="bookmark-cards">
       {bookmarks.map((bookmark) => (
@@ -19,12 +21,12 @@ export default function BookmarksList({ bookmarks, onOpenDetail }: BookmarksList
             <a className="bookmark-card-name" href={bookmark.url} target="_blank" rel="noreferrer">
               {bookmark.name}
             </a>
-            {bookmark.description && (
+            {visibility.description && bookmark.description && (
               <p className="bookmark-card-description">{bookmark.description}</p>
             )}
             <div className="bookmark-card-meta">
-              <span className="type-badge">{bookmark.type}</span>
-              {bookmark.tags.length > 0 && (
+              {visibility.type && <span className="type-badge">{bookmark.type}</span>}
+              {visibility.tags && bookmark.tags.length > 0 && (
                 <div className="tags">
                   {bookmark.tags.map((tag) => (
                     <span className="tag-pill" key={tag}>

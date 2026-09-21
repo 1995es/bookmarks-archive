@@ -217,3 +217,43 @@ describe("narrow-viewport layout", () => {
 function lastParams(): ListBookmarksParams {
   return listBookmarksMock.mock.calls.at(-1)![0] ?? {};
 }
+
+describe("column visibility", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("hides a column when unchecked and remembers the choice across a remount", async () => {
+    listBookmarksMock.mockResolvedValue(page(["one"]));
+
+    const user = userEvent.setup();
+    const { unmount } = render(<App />);
+
+    expect(await screen.findByRole("columnheader", { name: "Description" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /columns/i }));
+    await user.click(screen.getByRole("checkbox", { name: "Description" }));
+
+    expect(screen.queryByRole("columnheader", { name: "Description" })).not.toBeInTheDocument();
+    // The other two are untouched.
+    expect(screen.getByRole("columnheader", { name: "Tags" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Type" })).toBeInTheDocument();
+
+    unmount();
+    render(<App />);
+
+    expect(await screen.findByRole("columnheader", { name: "Tags" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Description" })).not.toBeInTheDocument();
+  });
+
+  it("falls back to showing every column when the stored preference is malformed", async () => {
+    window.localStorage.setItem("bookmarks-archive:visible-columns", "not json");
+    listBookmarksMock.mockResolvedValue(page(["one"]));
+
+    render(<App />);
+
+    expect(await screen.findByRole("columnheader", { name: "Description" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Tags" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Type" })).toBeInTheDocument();
+  });
+});

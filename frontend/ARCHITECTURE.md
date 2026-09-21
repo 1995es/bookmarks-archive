@@ -35,8 +35,9 @@ A handful of files under `src/`, and that is intended to stay small:
 | File | Role |
 |---|---|
 | `App.tsx` | Composition root: owns the list, filters, sort, pagination, the enrichment poll, and the selected-bookmark id. |
-| `components/` | `AddBookmarkForm`, `FiltersBar`, `SortControl`, `BookmarksTable`, `BookmarksList`, `Pagination`, `BookmarkDetailModal`, `ErrorBanner`. |
+| `components/` | `AddBookmarkForm`, `FiltersBar`, `ColumnsControl`, `SortControl`, `BookmarksTable`, `BookmarksList`, `Pagination`, `BookmarkDetailModal`, `ErrorBanner`. |
 | `useMediaQuery.ts` | Subscribes to a CSS media query; drives the table/card layout switch below. |
+| `useColumnVisibility.ts` | Which of the description/tags/type columns are shown, persisted in `localStorage`. |
 | `api.ts` | `fetch` wrappers, one per endpoint, plus shared error handling. |
 | `types.ts` | Hand-written mirror of the backend's Pydantic schemas. |
 | `utils.ts` | Input parsing (`parseTags`, `parseBulkUrls`), `formatDate`, and the bulk-add worker pool. |
@@ -80,6 +81,10 @@ controls thousands of pixels below the fold. `App.tsx` therefore picks a layout 
 | List | `BookmarksTable` | `BookmarksList` (one card per bookmark, description clamped to two lines) |
 | Sort | click the `Name` column header | `SortControl`, a field+direction select |
 | Pagination | `Pagination` below the list | `Pagination compact` inside a sticky control bar above it |
+
+The `ColumnsControl` menu in the filters row hides the description, tags and type columns (and the
+matching card fields). It is a view preference stored in `localStorage`, not a query parameter:
+hidden values are still fetched and still shown in the detail modal.
 
 The switch is made in JS rather than by rendering both and hiding one with CSS: two copies of every
 bookmark would double the markup and make accessibility and test queries ambiguous. The trade-off

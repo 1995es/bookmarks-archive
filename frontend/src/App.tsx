@@ -4,6 +4,7 @@ import type { BookmarkSortBy, BookmarkSortOrder } from "./api";
 import type { Bookmark, BookmarkId, BookmarkType } from "./types";
 import { PAGE_SIZE } from "./utils";
 import { useMediaQuery } from "./useMediaQuery";
+import { useColumnVisibility } from "./useColumnVisibility";
 import AddBookmarkForm from "./components/AddBookmarkForm";
 import FiltersBar from "./components/FiltersBar";
 import BookmarksTable from "./components/BookmarksTable";
@@ -12,6 +13,7 @@ import SortControl from "./components/SortControl";
 import Pagination from "./components/Pagination";
 import BookmarkDetailModal from "./components/BookmarkDetailModal";
 import ErrorBanner from "./components/ErrorBanner";
+import ColumnsControl from "./components/ColumnsControl";
 
 export default function App() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -27,6 +29,10 @@ export default function App() {
   const [offset, setOffset] = useState(0);
 
   const [selectedId, setSelectedId] = useState<BookmarkId | null>(null);
+
+  // Purely a display preference (persisted in localStorage): hidden columns are still fetched
+  // and still shown in the detail modal, so this stays out of refresh()'s dependencies.
+  const [columnVisibility, toggleColumn] = useColumnVisibility();
 
   // Below this width the five-column table overflows the viewport; cards replace it.
   const isNarrow = useMediaQuery("(max-width: 640px)");
@@ -150,7 +156,9 @@ export default function App() {
           onFilterTagChange={setFilterTag}
           filterType={filterType}
           onFilterTypeChange={setFilterType}
-        />
+        >
+          <ColumnsControl visibility={columnVisibility} onToggleColumn={toggleColumn} />
+        </FiltersBar>
         {isNarrow && (
           <div className="controls-row">
             <SortControl sortBy={sortBy} sortOrder={sortOrder} onSortChange={setSort} />
@@ -174,10 +182,15 @@ export default function App() {
       {!loading &&
         bookmarks.length > 0 &&
         (isNarrow ? (
-          <BookmarksList bookmarks={bookmarks} onOpenDetail={setSelectedId} />
+          <BookmarksList
+            bookmarks={bookmarks}
+            visibility={columnVisibility}
+            onOpenDetail={setSelectedId}
+          />
         ) : (
           <BookmarksTable
             bookmarks={bookmarks}
+            visibility={columnVisibility}
             sortBy={sortBy}
             sortOrder={sortOrder}
             onToggleSort={toggleSort}

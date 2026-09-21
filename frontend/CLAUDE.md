@@ -48,10 +48,15 @@ src/
 │                                     in :root, then component rules. See "Design system" below.
 ├── useMediaQuery.ts                 useSyncExternalStore wrapper over window.matchMedia; drives
 │                                     the wide/narrow layout switch
+├── useColumnVisibility.ts           which of description/tags/type are shown, persisted to
+│                                     localStorage; also owns the column list and its labels
 └── components/
     ├── AddBookmarkForm.tsx          add form incl. bulk-URL mode; owns its own form state,
     │                                calls createBookmark itself, reports back via onCreated/onError
-    ├── FiltersBar.tsx               tag/type filter controls (controlled by App)
+    ├── FiltersBar.tsx               tag/type filter controls (controlled by App), plus a
+    │                                trailing `children` slot the columns menu rides in
+    ├── ColumnsControl.tsx           popover of checkboxes toggling the description/tags/type
+    │                                columns; owns only its own open/closed state
     ├── SortControl.tsx              narrow-viewport sort: one select carrying field + direction
     ├── BookmarksTable.tsx           read-only table (wide): name, description, tags, type, and
     │                                one eye-icon button per row that opens the detail modal
@@ -128,6 +133,26 @@ anywhere opens the modal while the name still opens the URL, without nesting a l
 button. Changing pages scrolls back to the top (`goToOffset` in `App.tsx`); with sticky controls
 you would otherwise stay stranded mid-list on a page that silently changed under you. That scroll
 is instant, not smooth: a smooth scroll races the re-render that shortens the page under it.
+
+## Column visibility
+
+`useColumnVisibility` (`src/useColumnVisibility.ts`) holds which of `description`, `tags` and
+`type` are rendered, and writes the object to `localStorage` under
+`bookmarks-archive:visible-columns` on every change. It is a **display preference, not a query
+parameter**: hidden columns are still fetched and still shown in the detail modal, so it stays out
+of `refresh()`'s dependency list (see "How data flows"). The same flags drive `BookmarksTable`'s
+columns and `BookmarksList`'s card fields, so a choice made on the desktop carries to the phone.
+
+Anything stored can be absent, stale or hand-edited, so `readStored()` validates each key on its
+own and falls back to visible — a malformed value must never blank the table — and both the read
+and the write are wrapped in `try`/`catch` for browsers where storage throws outright (private
+mode, storage disabled). Adding a toggleable column means extending `TOGGLEABLE_COLUMNS` plus
+`COLUMN_LABELS`/`DEFAULT_COLUMN_VISIBILITY`, then the two list components; the menu and the stored
+shape follow from the constant.
+
+The jsdom build the tests run against ships no `Storage` at all, so `src/test/setup.ts` installs an
+in-memory stand-in alongside its `matchMedia` and `scrollTo` stubs. A test that asserts on
+persistence clears it in its own `beforeEach`.
 
 ## The detail modal
 

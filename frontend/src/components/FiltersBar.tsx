@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { BookmarkType } from "../types";
 import { BOOKMARK_TYPES } from "../utils";
 
@@ -6,6 +7,8 @@ interface FiltersBarProps {
   onFilterTagChange: (value: string) => void;
   filterType: BookmarkType | "";
   onFilterTypeChange: (value: BookmarkType | "") => void;
+  /** Trailing slot on the same row — the columns menu rides here in both layouts. */
+  children?: ReactNode;
 }
 
 export default function FiltersBar({
@@ -13,6 +16,7 @@ export default function FiltersBar({
   onFilterTagChange,
   filterType,
   onFilterTypeChange,
+  children,
 }: FiltersBarProps) {
   return (
     <div className="filters">
@@ -33,6 +37,7 @@ export default function FiltersBar({
           </option>
         ))}
       </select>
+      {children}
     </div>
   );
 }

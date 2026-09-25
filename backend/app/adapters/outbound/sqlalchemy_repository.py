@@ -27,6 +27,7 @@ def _to_domain(row: BookmarkRow) -> Bookmark:
         created_at=row.created_at,
         deleted_at=row.deleted_at,
         enrichment_status=row.enrichment_status,
+        favicon_url=row.favicon_url,
     )
 
 
@@ -52,6 +53,7 @@ def _copy_into_row(bookmark: Bookmark, row: BookmarkRow) -> None:
     row.created_at = bookmark.created_at
     row.deleted_at = bookmark.deleted_at
     row.enrichment_status = bookmark.enrichment_status
+    row.favicon_url = bookmark.favicon_url
 
 
 class SqlAlchemyBookmarkRepository(BookmarkRepository):

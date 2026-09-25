@@ -33,6 +33,7 @@ _MAX_NAME_LENGTH = 200
 _MAX_TAGS = 50
 _MAX_TAG_LENGTH = 50
 _MAX_DESCRIPTION_LENGTH = 2000
+_MAX_URL_LENGTH = 2000
 
 
 @dataclass(frozen=True)
@@ -43,11 +44,17 @@ class FetchedContent:
     blob of text, so BookmarkEnricherService gets the page's own title/description
     as distinct signals from the body, and enrich_bookmark can use `name` to
     replace a placeholder bookmark name without re-parsing the page itself.
+
+    `favicon_url` is the page's own icon, already resolved to an absolute URL by
+    the fetcher. It defaults to "" (meaning "none found") so the enricher, which
+    has no use for it, is unaffected — and so every existing construction of this
+    frozen dataclass keeps working.
     """
 
     name: str
     description: str
     content: str
+    favicon_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -69,6 +76,10 @@ class Bookmark:
     created_at: datetime | None = None
     deleted_at: datetime | None = None
     enrichment_status: EnrichmentStatus = EnrichmentStatus.PENDING
+    # Discovered during enrichment; None until then, and for any bookmark whose
+    # page declares no icon. Read-only from the API's point of view — nothing in
+    # the UI sets it, so update() deliberately leaves it alone.
+    favicon_url: str | None = None
 
     def __post_init__(self) -> None:
         self.tags = list(self.tags)
@@ -106,7 +117,13 @@ class Bookmark:
         self.type = type
         self.validate()
 
-    def enrich(self, data: ExtractedData, *, name: str | None = None) -> None:
+    def enrich(
+        self,
+        data: ExtractedData,
+        *,
+        name: str | None = None,
+        favicon_url: str | None = None,
+    ) -> None:
         """Merge generated description/tags onto what the user already provided.
 
         Description is appended (not replaced) so a user-written description
@@ -122,9 +139,17 @@ class Bookmark:
         current name is still the auto-derived placeholder worth replacing, or
         a name the user actually chose. Truncated to _MAX_NAME_LENGTH for the
         same reason description/tags are: this never passes through Pydantic.
+
+        `favicon_url` is likewise replaced outright when given, and there is no
+        user-chosen value to protect: nothing in the UI sets it. Unlike the
+        fields above it is *dropped* rather than truncated when over-length — a
+        truncated URL isn't a shorter URL, it's a broken one.
         """
         if name:
             self.name = name[:_MAX_NAME_LENGTH]
+
+        if favicon_url and len(favicon_url) <= _MAX_URL_LENGTH:
+            self.favicon_url = favicon_url
 
         if self.description:
             merged = f"{self.description}\n\n{data.description}"

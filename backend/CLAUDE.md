@@ -149,6 +149,20 @@ there's no check-then-insert race.
   separate fields, rather than one flattened string. `BookmarkEnricherService.extract_data()` takes
   the whole `FetchedContent` (as `fetched`, alongside `url`) so the LLM prompt gets the page's own
   title/description as distinct signals from its body, not just body text.
+- **The favicon is discovered in that same fetch, and must never fail it.** `FetchedContent` also
+  carries `favicon_url`: `_ContentExtractor` collects every `<link rel="icon">`/`apple-touch-icon`
+  (`rel` is a token list, so `"shortcut icon"` counts), scores them by declared `sizes` — `any`
+  (a scalable SVG) beats every raster size, an apple-touch-icon with no `sizes` scores 180 — and
+  `_resolve_favicon()` absolutizes the winner against **the URL the response actually came from**,
+  not the requested one, so a cross-host redirect doesn't point at the wrong origin. No icon, a
+  `data:` URI, a malformed href or an over-long URL all yield `""`, never an exception: this rides
+  inside the fetch that feeds the LLM, and a raise here would burn all five retries and mark the
+  bookmark `failed` over decoration. `Bookmark.enrich(..., favicon_url=...)` then replaces the
+  stored value outright — nothing in the UI sets it, so there's no user choice to protect — and
+  *drops* an over-length URL instead of truncating, since a truncated URL is a broken one.
+  `favicon_url` is exposed on `BookmarkRead` only, never on `BookmarkBase`, so neither POST nor PUT
+  can set or clear it. Note this means **existing bookmarks stay icon-less**: enrichment only runs
+  on create and on manual retry, and there is deliberately no backfill yet.
 - **`enrich_bookmark()` also updates the bookmark's name from `fetched.name`, conditionally.** It
   only overwrites when the bookmark's current name still equals
   `bookmark_service.derive_name_from_url(bookmark.url)` — i.e. still the create-time placeholder

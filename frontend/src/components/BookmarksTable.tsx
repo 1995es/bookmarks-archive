@@ -1,6 +1,8 @@
+import type { KeyboardEvent } from "react";
 import type { Bookmark, BookmarkId } from "../types";
 import type { BookmarkSortBy } from "../api";
 import type { ColumnVisibility } from "../useColumnVisibility";
+import BookmarkName from "./BookmarkName";
 
 interface BookmarksTableProps {
   bookmarks: Bookmark[];
@@ -26,6 +28,29 @@ export default function BookmarksTable({
     return sortOrder === "asc" ? " ▲" : " ▼";
   }
 
+  function handleRowClick(id: BookmarkId) {
+    // A click that ends a drag-selection is someone copying a description, not asking for the
+    // modal. Without this, selecting text in a row always pops the modal open over it.
+    if (window.getSelection()?.toString()) {
+      return;
+    }
+    onOpenDetail(id);
+  }
+
+  function handleRowKeyDown(e: KeyboardEvent<HTMLTableRowElement>, id: BookmarkId) {
+    if (e.key !== "Enter" && e.key !== " ") {
+      return;
+    }
+    // Only when the row itself has focus: Enter on the name link inside it belongs to the link,
+    // and its keydown bubbles up here.
+    if (e.target !== e.currentTarget) {
+      return;
+    }
+    // Space would otherwise scroll the page.
+    e.preventDefault();
+    onOpenDetail(id);
+  }
+
   return (
     <table className="bookmarks-table">
       <thead>
@@ -36,16 +61,22 @@ export default function BookmarksTable({
           {visibility.description && <th className="col-description">Description</th>}
           {visibility.tags && <th>Tags</th>}
           {visibility.type && <th>Type</th>}
-          <th className="row-actions"></th>
         </tr>
       </thead>
       <tbody>
         {bookmarks.map((bookmark) => (
-          <tr key={bookmark.id}>
+          // The whole row opens the modal, matching the card list. A table can't use that
+          // layout's stretched-button trick (a <tr> is no place for an absolutely positioned
+          // overlay), so the row carries the handlers itself — including `tabIndex`, which is
+          // what keeps the modal reachable without a mouse now that there's no button.
+          <tr
+            key={bookmark.id}
+            tabIndex={0}
+            onClick={() => handleRowClick(bookmark.id)}
+            onKeyDown={(e) => handleRowKeyDown(e, bookmark.id)}
+          >
             <td>
-              <a href={bookmark.url} target="_blank" rel="noreferrer">
-                {bookmark.name}
-              </a>
+              <BookmarkName bookmark={bookmark} />
             </td>
             {visibility.description && (
               <td className="col-description">{bookmark.description ?? ""}</td>
@@ -66,29 +97,6 @@ export default function BookmarksTable({
                 <span className="type-badge">{bookmark.type}</span>
               </td>
             )}
-            <td className="row-actions">
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={`View details for ${bookmark.name}`}
-                onClick={() => onOpenDetail(bookmark.id)}
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              </button>
-            </td>
           </tr>
         ))}
       </tbody>

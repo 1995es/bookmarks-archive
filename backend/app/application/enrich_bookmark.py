@@ -36,5 +36,5 @@ async def enrich_bookmark(
     if fetched.name and bookmark.name == derive_name_from_url(bookmark.url):
         fetched_name = fetched.name
 
-    bookmark.enrich(data, name=fetched_name)
+    bookmark.enrich(data, name=fetched_name, favicon_url=fetched.favicon_url or None)
     return await repo.save(bookmark)

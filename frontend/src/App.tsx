@@ -175,12 +175,15 @@ export default function App() {
         )}
       </div>
 
-      {loading && <div className="status-line">Loading…</div>}
+      {/* "Loading…" replaces the list only when there is nothing to replace it with. A refresh
+          with rows already on screen (every poll, and every create/edit/delete) keeps them
+          rendered: swapping the list for a status line and back makes a freshly added bookmark
+          vanish and reappear, which is exactly the moment the enrichment animation plays. */}
+      {loading && bookmarks.length === 0 && <div className="status-line">Loading…</div>}
 
       {!loading && bookmarks.length === 0 && <div className="status-line">No bookmarks yet</div>}
 
-      {!loading &&
-        bookmarks.length > 0 &&
+      {bookmarks.length > 0 &&
         (isNarrow ? (
           <BookmarksList
             bookmarks={bookmarks}
@@ -198,7 +201,7 @@ export default function App() {
           />
         ))}
 
-      {!loading && !isNarrow && total > 0 && (
+      {!isNarrow && total > 0 && (
         <Pagination
           offset={offset}
           total={total}

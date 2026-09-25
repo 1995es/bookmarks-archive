@@ -20,6 +20,7 @@ function bookmark(overrides: Partial<Bookmark> = {}): Bookmark {
     type: "post",
     created_at: "2026-03-14T12:00:00Z",
     enrichment_status: "done",
+    favicon_url: null,
     ...overrides,
   };
 }

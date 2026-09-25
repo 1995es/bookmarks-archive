@@ -25,6 +25,7 @@ function bookmark(overrides: Partial<Bookmark> = {}): Bookmark {
     type: "post",
     created_at: "2026-03-14T12:00:00Z",
     enrichment_status: "done",
+    favicon_url: null,
     ...overrides,
   };
 }
@@ -79,6 +80,31 @@ describe("retry", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Enrichment is already running");
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("favicon", () => {
+  it("shows the bookmark's icon beside its name", () => {
+    const { container } = renderModal({ favicon_url: "https://example.com/favicon.ico" });
+
+    expect(container.querySelector(".bookmark-favicon")).toHaveAttribute(
+      "src",
+      "https://example.com/favicon.ico",
+    );
+  });
+
+  it("falls back to the host's initial when there is no icon", () => {
+    const { container } = renderModal({ favicon_url: null });
+
+    expect(container.querySelector(".bookmark-favicon-letter")).toHaveTextContent("e");
+  });
+
+  it("drops the icon while editing, where the heading is the action, not the bookmark", async () => {
+    const { user, container } = renderModal({ favicon_url: "https://example.com/favicon.ico" });
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+
+    expect(container.querySelector(".bookmark-favicon")).not.toBeInTheDocument();
   });
 });
 

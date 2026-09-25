@@ -50,6 +50,8 @@ src/
 │                                     the wide/narrow layout switch
 ├── useColumnVisibility.ts           which of description/tags/type are shown, persisted to
 │                                     localStorage; also owns the column list and its labels
+├── useScrambleText.ts               arrival-board reveal: resolves a string left to right while
+│                                     the tail keeps shuffling. See "The enrichment effect"
 └── components/
     ├── AddBookmarkForm.tsx          add form incl. bulk-URL mode; owns its own form state,
     │                                calls createBookmark itself, reports back via onCreated/onError
@@ -58,8 +60,12 @@ src/
     ├── ColumnsControl.tsx           popover of checkboxes toggling the description/tags/type
     │                                columns; owns only its own open/closed state
     ├── SortControl.tsx              narrow-viewport sort: one select carrying field + direction
-    ├── BookmarksTable.tsx           read-only table (wide): name, description, tags, type, and
-    │                                one eye-icon button per row that opens the detail modal
+    ├── BookmarkFavicon.tsx          the favicon, falling back to the host's initial on a tile —
+    │                                the only place that knows that chain; used by all three surfaces
+    ├── BookmarkName.tsx             the name cell shared by both layouts: pending indicator,
+    │                                shimmering URL, and the scramble on pending → done
+    ├── BookmarksTable.tsx           read-only table (wide): name, description, tags, type; the
+    │                                whole row opens the detail modal (click, or Enter/Space)
     ├── BookmarksList.tsx            read-only card list (narrow): the same data stacked, with
     │                                the whole card opening the detail modal
     ├── Pagination.tsx               prev/next + range display (controlled by App); `compact`
@@ -130,9 +136,72 @@ stubs `window.matchMedia` itself (see the `narrow-viewport layout` block in `App
 `BookmarksList`'s cards use a stretched transparent button (`.bookmark-card-open`) covering the
 card, with `pointer-events: none` on the content and the name link opting back in — so a tap
 anywhere opens the modal while the name still opens the URL, without nesting a link inside a
-button. Changing pages scrolls back to the top (`goToOffset` in `App.tsx`); with sticky controls
+button.
+
+The table reaches the same behavior differently: a `<tr>` is no place for an absolutely positioned
+overlay, so `BookmarksTable` puts the handlers on the row itself. Three things there are load-bearing:
+
+- **`tabIndex={0}` plus an Enter/Space `onKeyDown` is the whole keyboard story.** The table used to
+  carry a per-row eye button, and that button was what made the modal reachable without a mouse;
+  when it was removed, the row had to take that over. A click handler alone would leave the modal
+  mouse-only. `:focus-visible` on the row draws the focus ring, inset so a full-width outline isn't
+  clipped at the viewport edge.
+- **The key handler only fires when the row itself has focus** (`e.target !== e.currentTarget`
+  bails). Enter on the focused name link belongs to the link, and its keydown bubbles through here.
+- **A click that ends a text selection is ignored** (`window.getSelection()`), or copying a
+  description out of a row would always pop the modal open over it.
+
+In both layouts the name link stops propagation, so the one thing inside the click target that
+isn't "open the modal" is the bookmark's own link. Changing pages scrolls back to the top (`goToOffset` in `App.tsx`); with sticky controls
 you would otherwise stay stranded mid-list on a page that silently changed under you. That scroll
 is instant, not smooth: a smooth scroll races the re-render that shortens the page under it.
+
+## The enrichment effect
+
+A freshly added bookmark is useless for a few seconds: the backend stores a placeholder name
+derived from the URL's host and fetches the real one in the background. `BookmarkName` (used by
+both `BookmarksTable` and `BookmarksList`, so the two layouts tell the same story) renders that
+wait rather than hiding it:
+
+- **Pending.** The URL itself is shown, not the host placeholder — the placeholder says nothing
+  the URL doesn't. It carries `.text-shimmer`, a grey gradient clipped to the glyphs, beside a 3x3
+  grid of pulsing dots. The dots sit in a fixed-width slot that stays reserved once the bookmark
+  resolves, so nothing shifts sideways — the favicon takes their place there.
+- **Done.** The real name arrives and is revealed with `useScrambleText`: one character per ~16ms
+  resolves from the left while the rest keep cycling through random characters. Spaces are never
+  scrambled, which is what keeps a half-resolved title reading as a title.
+
+The favicon is `bookmark.favicon_url`, discovered by the backend during that same enrichment (see
+`backend/CLAUDE.md`) — never a third-party icon service, which would hand your whole bookmark list
+to someone else and break on a LAN box with no outbound route. A stored icon URL can rot, so
+`onError` falls back to the host's initial on a tile. `BookmarkFavicon` tracks that failure *per
+icon URL* rather than as a bare boolean, so a bookmark whose icon changes gets a fresh attempt
+without callers having to remember a `key`. It's loaded with `referrerPolicy="no-referrer"`, since
+the browser fetches it from the bookmarked site directly.
+
+`BookmarkFavicon` is deliberately its own component rather than part of `BookmarkName`: the detail
+modal shows the icon beside its heading too (at `bookmark-favicon-lg`, 24px), and that fallback
+chain should exist once. The modal drops it while editing, where the heading is the action ("Edit
+bookmark") rather than the bookmark itself. Unlike the list rows, the modal shows no pending dots —
+it already reports enrichment state explicitly in its Status row.
+
+Three things about it are easy to break:
+
+- **The animation is gated on a transition, not on a status.** `BookmarkName` keeps the previous
+  `enrichment_status` in state and starts the scramble only when *it* observes `pending → done`.
+  Gating on `status === "done"` instead would scramble every row on every page load.
+- **It respects `prefers-reduced-motion`.** The scramble is gated in JS on the media query, and
+  the shimmer and pulse are disabled in CSS under the same one; both states stay legible as plain
+  grey text. Note this makes every media query match in the narrow-layout tests, which stub
+  `matchMedia` wholesale — that's why those tests never see a scramble.
+- **The reveal is derived from elapsed time, not from a tick count.** Browsers clamp timers to
+  ~1s in a hidden tab; counting ticks leaves a half-scrambled title sitting there for a minute
+  after the reader switches back.
+
+`App.tsx` only swaps the list for "Loading…" when there is nothing to show yet
+(`loading && bookmarks.length === 0`). A refresh with rows already on screen — every poll, and
+every create — keeps them rendered, because unmounting the list would both discard the transition
+`BookmarkName` is watching for and make the new bookmark vanish and reappear.
 
 ## Column visibility
 
@@ -156,7 +225,7 @@ persistence clears it in its own `beforeEach`.
 
 ## The detail modal
 
-Clicking a row's eye button sets `App`'s `selectedId`; the modal itself is rendered as
+Clicking a row sets `App`'s `selectedId`; the modal itself is rendered as
 `bookmarks.find(b => b.id === selectedId)`, not a copy fetched separately. That means the same
 5s enrichment poll that refreshes the table also keeps an open modal's status badge current (e.g.
 `pending` flipping to `done`), and a bookmark deleted through another path (or no longer matching

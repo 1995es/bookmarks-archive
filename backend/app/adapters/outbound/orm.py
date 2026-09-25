@@ -40,3 +40,6 @@ class BookmarkRow(Base):
     enrichment_status: Mapped[EnrichmentStatus] = mapped_column(
         SAEnum(EnrichmentStatus), default=EnrichmentStatus.PENDING, nullable=False
     )
+    # Nullable: every bookmark predating enrichment, and every page that declares
+    # no icon, simply has none. The frontend falls back to a letter tile.
+    favicon_url: Mapped[str | None] = mapped_column(String, nullable=True)

@@ -35,9 +35,10 @@ A handful of files under `src/`, and that is intended to stay small:
 | File | Role |
 |---|---|
 | `App.tsx` | Composition root: owns the list, filters, sort, pagination, the enrichment poll, and the selected-bookmark id. |
-| `components/` | `AddBookmarkForm`, `FiltersBar`, `ColumnsControl`, `SortControl`, `BookmarksTable`, `BookmarksList`, `Pagination`, `BookmarkDetailModal`, `ErrorBanner`. |
+| `components/` | `AddBookmarkForm`, `FiltersBar`, `ColumnsControl`, `SortControl`, `BookmarkName`, `BookmarkFavicon`, `BookmarksTable`, `BookmarksList`, `Pagination`, `BookmarkDetailModal`, `ErrorBanner`. |
 | `useMediaQuery.ts` | Subscribes to a CSS media query; drives the table/card layout switch below. |
 | `useColumnVisibility.ts` | Which of the description/tags/type columns are shown, persisted in `localStorage`. |
+| `useScrambleText.ts` | Reveals a string left to right while the tail keeps shuffling — see [The enrichment effect](#the-enrichment-effect). |
 | `api.ts` | `fetch` wrappers, one per endpoint, plus shared error handling. |
 | `types.ts` | Hand-written mirror of the backend's Pydantic schemas. |
 | `utils.ts` | Input parsing (`parseTags`, `parseBulkUrls`), `formatDate`, and the bulk-add worker pool. |
@@ -93,6 +94,21 @@ jsdom, defaulting to the wide layout.
 
 Tests sit beside the file they cover, as `*.test.ts`/`*.test.tsx`; the heaviest are on `api.ts`
 (the whole backend contract), the out-of-order guard below, and bulk add.
+
+### The enrichment effect
+
+A bookmark is created before anything is known about it: the backend stores a placeholder name
+taken from the URL's host, then fetches the page and derives the real name in the background.
+`BookmarkName` — used by the table and the card list alike — shows that wait instead of hiding it.
+
+| | Pending | Done |
+|---|---|---|
+| Leading slot | 3x3 grid of dots, each pulsing on its own period | the page's favicon, or the host's initial on a tile |
+| Text | the URL, under a grey gradient that sweeps across it | the real name, revealed one character per ~16ms while the rest keep cycling |
+
+The reveal starts only when a row observes its own `pending → done` transition, so a page of
+already-enriched bookmarks doesn't scramble on load. Under `prefers-reduced-motion` all three
+animations are skipped and both states stay legible as plain grey text.
 
 ## Data flow
 

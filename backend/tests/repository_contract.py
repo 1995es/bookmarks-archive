@@ -43,6 +43,16 @@ async def test_add_then_get_returns_the_bookmark(repo) -> None:
     assert await repo.get(added.id) == added
 
 
+async def test_favicon_url_round_trips(repo) -> None:
+    """Part of the contract so both adapters' field mapping is proven, not assumed."""
+    added = await repo.add(make_bookmark(favicon_url="https://a.com/favicon.ico"))
+
+    fetched = await repo.get(added.id)
+
+    assert fetched is not None
+    assert fetched.favicon_url == "https://a.com/favicon.ico"
+
+
 async def test_list_excludes_soft_deleted(repo) -> None:
     kept = await repo.add(make_bookmark(name="Kept"))
     deleted = await repo.add(make_bookmark(name="Deleted"))

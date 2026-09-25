@@ -163,6 +163,32 @@ async def test_does_not_replace_placeholder_name_when_fetch_yields_no_title(
     assert result.name == "example.com"
 
 
+async def test_stores_the_fetched_favicon_url(repo: FakeBookmarkRepository) -> None:
+    created = await _create(repo)
+    fetcher = FakeContentFetcher(
+        FetchedContent(name="", description="", content="", favicon_url="https://a.com/favicon.ico")
+    )
+    enricher = FakeEnricherService()
+
+    result = await enrich_bookmark(created.id, repo=repo, fetcher=fetcher, enricher=enricher)
+
+    assert result is not None
+    assert result.favicon_url == "https://a.com/favicon.ico"
+
+
+async def test_leaves_favicon_url_unset_when_the_page_declares_none(
+    repo: FakeBookmarkRepository,
+) -> None:
+    created = await _create(repo)
+    fetcher = FakeContentFetcher(FetchedContent(name="", description="", content=""))
+    enricher = FakeEnricherService()
+
+    result = await enrich_bookmark(created.id, repo=repo, fetcher=fetcher, enricher=enricher)
+
+    assert result is not None
+    assert result.favicon_url is None
+
+
 async def test_returns_none_when_bookmark_does_not_exist(repo: FakeBookmarkRepository) -> None:
     fetcher = FakeContentFetcher()
     enricher = FakeEnricherService()

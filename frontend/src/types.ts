@@ -16,6 +16,9 @@ export interface Bookmark {
   type: BookmarkType;
   created_at: string;
   enrichment_status: EnrichmentStatus;
+  /** The page's own icon, discovered during enrichment (read-only, server-derived).
+   * Null until enrichment lands, and for any page that declares no usable icon. */
+  favicon_url: string | null;
 }
 
 export interface BookmarkInput {

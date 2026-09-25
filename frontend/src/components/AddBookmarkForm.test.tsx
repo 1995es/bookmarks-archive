@@ -20,6 +20,7 @@ function created(url: string): Bookmark {
     type: "post",
     created_at: "2026-03-14T12:00:00Z",
     enrichment_status: "pending",
+    favicon_url: null,
   };
 }
 

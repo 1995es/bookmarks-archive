@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { deleteBookmark, retryEnrichment, updateBookmark } from "../api";
 import type { Bookmark, BookmarkInput, BookmarkType } from "../types";
 import { BOOKMARK_TYPES, formatDate, parseTags } from "../utils";
+import BookmarkFavicon from "./BookmarkFavicon";
 
 interface EditDraft {
   name: string;
@@ -119,6 +120,9 @@ export default function BookmarkDetailModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
+          {/* Only alongside the bookmark's own name: while editing, the heading is the action
+              ("Edit bookmark"), and an icon next to it would be labelling the wrong thing. */}
+          {!editing && <BookmarkFavicon bookmark={bookmark} className="bookmark-favicon-lg" />}
           <h2>{editing ? "Edit bookmark" : bookmark.name}</h2>
           <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
             ×

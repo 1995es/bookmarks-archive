@@ -450,6 +450,18 @@ button:disabled {
   color: var(--color-ash);
 }
 
+/* The whole row opens the detail modal — see BookmarksTable. */
+.bookmarks-table tbody tr {
+  cursor: pointer;
+}
+
+/* The row is the control, so it has to show focus like one. Inset, because an outline drawn
+   outside a full-width row is clipped at the viewport edge. */
+.bookmarks-table tbody tr:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: -2px;
+}
+
 .bookmarks-table tbody tr:hover {
   background: #fafafa;
 }
@@ -460,14 +472,6 @@ button:disabled {
 .bookmarks-table td.col-description {
   width: 40%;
   overflow-wrap: break-word;
-}
-
-/* The actions column is squeezed to its content and pinned right, so the eye button stays at the
-   table's right edge even when every optional column is hidden and `Name` is the only one left. */
-.bookmarks-table th.row-actions,
-.bookmarks-table td.row-actions {
-  width: 1%;
-  text-align: right;
 }
 
 .bookmarks-table td a {
@@ -509,10 +513,6 @@ button:disabled {
   color: var(--color-ash);
 }
 
-.row-actions {
-  white-space: nowrap;
-}
-
 .icon-button {
   display: inline-flex;
   align-items: center;
@@ -529,6 +529,145 @@ button:disabled {
 
 .icon-button svg {
   display: block;
+}
+
+/* ---------- Enrichment state (pending → done) ---------- */
+
+/* The name sits next to a fixed-width slot that holds the pending indicator, and will hold the
+   favicon once there is one. Reserving it in both states keeps the name from shifting sideways
+   when a bookmark resolves. */
+.bookmark-name {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  min-width: 0;
+}
+
+/* In the table a name often wraps to two or three lines, and an icon centred against that block
+   floats away from the text it identifies. Align it to the first line instead — the cell itself
+   is already `vertical-align: top`. The card list keeps the centred version: its names are
+   shorter and the card has its own padding to sit inside. */
+.bookmarks-table .bookmark-name {
+  align-items: flex-start;
+}
+
+.bookmark-name-slot {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.bookmark-name-text {
+  overflow-wrap: anywhere;
+}
+
+.bookmark-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-inputs);
+  object-fit: contain;
+}
+
+/* Last resort when a site has no icon, or its icon fails to load: the host's initial on the
+   same hairline-grey ground the badges use, so a missing favicon still reads as deliberate. */
+.bookmark-favicon-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-inputs);
+  background: var(--color-soft-mist);
+  color: var(--color-ash);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* The modal has room for a larger icon, and its heading is 20px rather than a table cell's 14px. */
+.bookmark-favicon.bookmark-favicon-lg,
+.bookmark-favicon-letter.bookmark-favicon-lg {
+  width: 24px;
+  height: 24px;
+  font-size: var(--text-caption);
+  /* Optically centred on the heading's first line rather than its box. */
+  margin-top: 2px;
+}
+
+.enrichment-dots {
+  display: grid;
+  grid-template-columns: repeat(3, 3px);
+  gap: 3px;
+}
+
+.enrichment-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: var(--radius-badges);
+  background: var(--color-fog);
+  /* Duration and delay are set per dot inline, so the grid shimmers rather than blinks. */
+  animation-name: enrichment-pulse;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes enrichment-pulse {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* A grey gradient clipped to the glyphs and slid across them: the pending URL reads as
+   provisional without introducing a colour the system doesn't have. */
+.text-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-fog) 0%,
+    var(--color-ash) 50%,
+    var(--color-fog) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer 3s ease-in-out infinite;
+}
+
+@keyframes text-shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  50% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 100% 0;
+  }
+}
+
+/* Motion is decoration here — the state is still legible as plain grey text and static dots.
+   The scramble itself is gated in JS on the same query. */
+@media (prefers-reduced-motion: reduce) {
+  .enrichment-dot {
+    animation: none;
+    opacity: 0.5;
+  }
+
+  .text-shimmer {
+    background: none;
+    color: var(--color-fog);
+    -webkit-text-fill-color: currentColor;
+    animation: none;
+  }
 }
 
 /* ---------- Card list (narrow viewports) ---------- */
@@ -558,6 +697,12 @@ button:disabled {
   /* Taps fall through to the stretched .bookmark-card-open button below; the name link
      opts back in. */
   pointer-events: none;
+}
+
+/* The name is wrapped in .bookmark-name (slot + link) now, so the shrink-to-fit that used to
+   sit on the anchor belongs to the wrapper. */
+.bookmark-card-content .bookmark-name {
+  align-self: flex-start;
 }
 
 .bookmark-card-name {
@@ -695,6 +840,14 @@ button:disabled {
   line-height: var(--leading-heading-sm);
   margin: 0;
   word-break: break-word;
+  /* Takes the slack so the close button stays pinned right and the favicon stays beside the
+     title, however long the title runs. */
+  flex: 1;
+}
+
+.modal-header .bookmark-favicon,
+.modal-header .bookmark-favicon-letter {
+  flex: 0 0 auto;
 }
 
 .modal-header .icon-button {
@@ -717,11 +870,19 @@ button:disabled {
   color: var(--color-ink);
 }
 
+/* `.detail-label` is excluded deliberately: this selector outweighs `.detail-label` below
+   (0,4,1 vs 0,1,0), so without it the `flex` here would override the label's fixed 104px
+   column and let labels stretch, pushing every value to the right edge. */
 .detail-row a,
-.detail-row span:not(.tag-pill):not(.status-badge):not(.type-badge) {
+.detail-row span:not(.tag-pill):not(.status-badge):not(.type-badge):not(.detail-label) {
   /* Query-string URLs have no break opportunities and would otherwise widen the panel. */
   min-width: 0;
   overflow-wrap: anywhere;
+  /* `flex: 1` (basis 0) rather than the default `auto`: on a wrapping flex line the browser
+     breaks the line before it shrinks an item, so a value sized to its max-content — a
+     paragraph-long description — drops below its label instead of sitting beside it. With a
+     zero basis it stays on the label's line and wraps inside its own column. */
+  flex: 1;
 }
 
 .detail-row a {

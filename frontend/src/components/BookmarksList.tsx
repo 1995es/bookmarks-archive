@@ -1,5 +1,6 @@
 import type { Bookmark, BookmarkId } from "../types";
 import type { ColumnVisibility } from "../useColumnVisibility";
+import BookmarkName from "./BookmarkName";
 
 interface BookmarksListProps {
   bookmarks: Bookmark[];
@@ -10,7 +11,8 @@ interface BookmarksListProps {
 /**
  * Mobile counterpart to BookmarksTable: one stacked card per bookmark instead of five columns
  * that don't fit. Same two affordances as a table row — the name opens the URL, everything else
- * opens the detail modal — but the modal target is the whole card rather than a 16px icon.
+ * opens the detail modal — but reached with a stretched button rather than the row's own
+ * click handler, since a card can hold one and a <tr> can't.
  */
 export default function BookmarksList({ bookmarks, visibility, onOpenDetail }: BookmarksListProps) {
   return (
@@ -18,9 +20,7 @@ export default function BookmarksList({ bookmarks, visibility, onOpenDetail }: B
       {bookmarks.map((bookmark) => (
         <li className="bookmark-card" key={bookmark.id}>
           <div className="bookmark-card-content">
-            <a className="bookmark-card-name" href={bookmark.url} target="_blank" rel="noreferrer">
-              {bookmark.name}
-            </a>
+            <BookmarkName bookmark={bookmark} linkClassName="bookmark-card-name" />
             {visibility.description && bookmark.description && (
               <p className="bookmark-card-description">{bookmark.description}</p>
             )}

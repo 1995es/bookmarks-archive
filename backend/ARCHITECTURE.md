@@ -82,6 +82,8 @@ One table, `bookmarks`:
 | `tags` | JSON array of strings | one column, not a join table |
 | `type` | enum | `post`, `video`, `tweet`, `site` |
 | `deleted_at` | timestamp, nullable | soft-delete marker; never exposed over the API |
+| `enrichment_status` | enum | `pending`, `done`, `failed` — server-derived, read-only over the API |
+| `favicon_url` | string, nullable | the page's own icon, discovered during enrichment; read-only over the API |
 
 `tags` is a JSON-encoded array in a single column rather than a join table — the simplest option
 that still models tags as a real list, at the cost of a JSON query instead of a SQL join to filter
@@ -140,6 +142,14 @@ the compose files work unchanged.
 The name is the one field replaced outright rather than merged — and only when the current name is
 still the create-time placeholder derived from the URL's host. A name you actually typed is left
 alone.
+
+The same fetch also discovers the page's favicon, so no extra request is made: the fetcher reads
+`<link rel="icon">` (preferring a scalable icon, then the largest declared `sizes`), resolves it
+against the URL the response actually came from — a redirect to another host would otherwise point
+at the wrong origin — and falls back to the conventional `/favicon.ico`. Anything unusable, such as
+a `data:` URI or a malformed href, yields no icon rather than an error: favicon discovery must never
+be why an enrichment fails, since it shares the fetch that feeds the LLM. The frontend falls back to
+the host's initial on a tile, so a missing icon is a normal state rather than a broken image.
 
 Two properties worth knowing:
 

@@ -9,6 +9,7 @@ from app.domain.models import (
     _MAX_DESCRIPTION_LENGTH,
     _MAX_NAME_LENGTH,
     _MAX_TAG_LENGTH,
+    _MAX_URL_LENGTH,
     Bookmark,
     BookmarkType,
     ExtractedData,
@@ -215,3 +216,35 @@ def test_enrich_truncates_oversized_name() -> None:
     bookmark.enrich(ExtractedData(description="d", tags=[]), name=long_name)
 
     assert bookmark.name == long_name[:_MAX_NAME_LENGTH]
+
+
+def test_favicon_url_defaults_to_none() -> None:
+    assert _bookmark().favicon_url is None
+
+
+def test_enrich_sets_favicon_url_when_given() -> None:
+    bookmark = _bookmark()
+
+    bookmark.enrich(
+        ExtractedData(description="d", tags=[]), favicon_url="https://a.com/favicon.ico"
+    )
+
+    assert bookmark.favicon_url == "https://a.com/favicon.ico"
+
+
+def test_enrich_keeps_existing_favicon_url_when_none_given() -> None:
+    bookmark = _bookmark(favicon_url="https://a.com/old.ico")
+
+    bookmark.enrich(ExtractedData(description="d", tags=[]))
+
+    assert bookmark.favicon_url == "https://a.com/old.ico"
+
+
+def test_enrich_drops_oversized_favicon_url_rather_than_truncating() -> None:
+    # A truncated URL isn't a shorter URL, it's a broken one — better to have none.
+    bookmark = _bookmark()
+    long_url = "https://a.com/" + "x" * _MAX_URL_LENGTH
+
+    bookmark.enrich(ExtractedData(description="d", tags=[]), favicon_url=long_url)
+
+    assert bookmark.favicon_url is None

@@ -158,3 +158,92 @@ async def test_missing_title_yields_empty_name() -> None:
 
     assert fetched.name == ""
     assert fetched.description == ""
+
+
+def _html_with_links(links: str) -> str:
+    return f"<html><head>{links}</head><body><p>Body</p></body></html>"
+
+
+async def _fetch_favicon(links: str, url: str = "https://example.com/page") -> str:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, html=_html_with_links(links))
+
+    async with _fetcher(handler) as fetcher:
+        fetched = await fetcher.fetch(url)
+
+    return fetched.favicon_url
+
+
+async def test_finds_a_declared_favicon() -> None:
+    favicon_url = await _fetch_favicon('<link rel="icon" href="https://cdn.example.com/i.png">')
+
+    assert favicon_url == "https://cdn.example.com/i.png"
+
+
+async def test_resolves_a_relative_favicon_against_the_page_url() -> None:
+    favicon_url = await _fetch_favicon('<link rel="icon" href="/static/i.png">')
+
+    assert favicon_url == "https://example.com/static/i.png"
+
+
+async def test_accepts_the_shortcut_icon_rel_spelling() -> None:
+    favicon_url = await _fetch_favicon('<link rel="shortcut icon" href="/old.ico">')
+
+    assert favicon_url == "https://example.com/old.ico"
+
+
+async def test_prefers_the_largest_declared_icon() -> None:
+    favicon_url = await _fetch_favicon(
+        '<link rel="icon" sizes="16x16" href="/small.png">'
+        '<link rel="icon" sizes="64x64" href="/large.png">'
+    )
+
+    assert favicon_url == "https://example.com/large.png"
+
+
+async def test_prefers_a_scalable_icon_over_any_raster_size() -> None:
+    favicon_url = await _fetch_favicon(
+        '<link rel="icon" sizes="64x64" href="/large.png">'
+        '<link rel="icon" sizes="any" href="/icon.svg">'
+    )
+
+    assert favicon_url == "https://example.com/icon.svg"
+
+
+async def test_falls_back_to_the_conventional_favicon_path() -> None:
+    favicon_url = await _fetch_favicon("")
+
+    assert favicon_url == "https://example.com/favicon.ico"
+
+
+async def test_falls_back_when_the_declared_icon_is_a_data_uri() -> None:
+    favicon_url = await _fetch_favicon('<link rel="icon" href="data:image/png;base64,iVBORw0K">')
+
+    assert favicon_url == "https://example.com/favicon.ico"
+
+
+async def test_resolves_the_favicon_against_the_final_url_after_a_redirect() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "start.example.com":
+            return httpx.Response(302, headers={"Location": "https://end.example.com/article"})
+        return httpx.Response(200, html=_html_with_links('<link rel="icon" href="/i.png">'))
+
+    async with _fetcher(handler) as fetcher:
+        fetched = await fetcher.fetch("https://start.example.com/article")
+
+    assert fetched.favicon_url == "https://end.example.com/i.png"
+
+
+async def test_favicon_discovery_never_fails_the_fetch() -> None:
+    # Discovery rides inside the fetch that feeds the LLM, so a malformed or
+    # unusable icon declaration must degrade to "no icon", never raise.
+    html = '<html><head><link rel="icon" href="http://"><title>T</title></head><body>x'
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, html=html)
+
+    async with _fetcher(handler) as fetcher:
+        fetched = await fetcher.fetch("https://example.com")
+
+    assert fetched.name == "T"
+    assert fetched.favicon_url == "https://example.com/favicon.ico"

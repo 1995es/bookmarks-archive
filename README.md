@@ -17,7 +17,8 @@ Bookmarks Archive is a small, self-hosted place to put those links instead.
   required. Close the tab with a clear conscience.
 - **It fills in the rest for you.** A few seconds later the bookmark has a proper title (if you
   didn't give one), a short description of what the page is about, and a set of tags — read and
-  written by an LLM from the page itself. Anything you typed yourself is kept; the generated bits are added alongside.
+  written by an LLM from the page itself. Anything you typed yourself is kept; the generated bits
+  are added alongside.
 - **You can find things again.** Filter by tag or by kind (post, video, tweet, site), sort, and
   page through your archive instead of scrolling a wall of URLs.
 - **It's yours.** It runs on your own machine or server, and everything lives in a single SQLite

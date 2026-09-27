@@ -57,10 +57,14 @@ One gap remains: `GET /bookmarks` accepts a `name` substring filter that the fro
 
 ## Docs
 
-`README.md` is the user-facing doc: what the project does and how to run it. It deliberately does
-*not* document the API surface, data model, or layer-by-layer architecture — that lives in
-`ARCHITECTURE.md`, which stays high-level and links out to `backend/ARCHITECTURE.md` and
-`frontend/ARCHITECTURE.md` for detail. Don't grow the README back into a reference doc.
+`README.md` is the pitch: the problem the project solves (tabs left open "to read later", links
+dumped in a notes app), how it helps, and a minimal quick start that invites you to try it. Keep it
+problem-focused and short — no stack list, no setup variants, no API surface, data model, or
+architecture. Everything else is on demand in other files it links to: `RUNNING.md` (model choice,
+dev/prod, data persistence and backups, running without Docker), `CONTRIBUTING.md` (stack and
+pre-PR checks), and `ARCHITECTURE.md`, which stays high-level and links out to
+`backend/ARCHITECTURE.md` and `frontend/ARCHITECTURE.md` for detail. Don't grow the README back
+into a reference doc.
 
 The `ARCHITECTURE.md` files are for humans reading the project; the `CLAUDE.md` files are agent
 instructions. Never link a reader-facing doc at a `CLAUDE.md`. They overlap in subject matter, so

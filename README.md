@@ -2,130 +2,48 @@
 
 [![CI](https://github.com/1995es/bookmarks-archive/actions/workflows/ci.yml/badge.svg)](https://github.com/1995es/bookmarks-archive/actions/workflows/ci.yml)
 
-A small self-hosted bookmarks manager: list, add, edit, delete, and filter bookmarks by tag or
-type. FastAPI backend, React + Vite + TypeScript frontend, SQLite storage, Docker Compose for both
-dev and prod.
+**Close those tabs. Keep the links.**
 
-## What it does
+You know the drill: a dozen tabs left open "to read later", slowly piling up until the browser
+crawls. Or a note titled *links* in whatever notes app you're using this year, full of bare URLs
+you'll never recognise again. Neither is a place to *find* something — they're just places things
+go to be forgotten.
 
-You save a URL. The bookmark shows up immediately with whatever you typed — a URL on its own is
-enough. In the background the backend then fetches that page, asks an LLM to read it, and fills in
-what you didn't: a description, a set of tags, and a real title in place of the placeholder one.
-Anything you wrote yourself is kept; the generated content is appended, not substituted.
+Bookmarks Archive is a small, self-hosted place to put those links instead.
 
-Everything else is deliberately plain. Filtering by tag or type happens server-side against a
-single SQLite table. Deletes are soft, so a URL you removed can be added again later. There is no
-auth, no queue, and no database server — it's one backend process, one static frontend, and one
-file on disk.
+## How it helps
 
-## How it works
+- **Saving takes a second.** Paste a URL and you're done — no title, no description, no tags
+  required. Close the tab with a clear conscience.
+- **It fills in the rest for you.** A few seconds later the bookmark has a proper title (if you
+  didn't give one), a short description of what the page is about, and a set of tags — read and
+  written by an LLM from the page itself. Anything you typed yourself is kept; the generated bits are added alongside.
+- **You can find things again.** Filter by tag or by kind (post, video, tweet, site), sort, and
+  page through your archive instead of scrolling a wall of URLs.
+- **It's yours.** It runs on your own machine or server, and everything lives in a single SQLite
+  file you can back up, copy, or open with any SQLite tool. No account, no sync service, no
+  lock-in.
 
-Three parts: a single-page React frontend, a FastAPI backend laid out as ports and adapters, and a
-SQLite file. Enrichment runs as a FastAPI `BackgroundTask` after the create response is sent, going
-out over `httpx` and then to whatever model `LLM_MODEL` names, through litellm.
+## Try it
 
-See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the full picture, which links on to
-[`backend/ARCHITECTURE.md`](backend/ARCHITECTURE.md) and
-[`frontend/ARCHITECTURE.md`](frontend/ARCHITECTURE.md) for the details of each side.
-
-## Stack
-
-- **Backend**: Python 3.14, FastAPI, SQLAlchemy 2 asyncio (aiosqlite), Pydantic v2, `uv`, pytest,
-  ruff. Async all the way down.
-- **Frontend**: React 19, TypeScript, Vite. Plain `fetch`, no data-fetching library.
-- **Database**: SQLite, a single `bookmarks` table, schema managed with Alembic.
-- **Containers**: separate dev (hot reload) and prod (nginx-served static build) Compose files.
-
-## Running it
-
-**Setup (once, mandatory):**
+You need Docker and an API key for an LLM provider (Gemini by default; OpenAI, Anthropic,
+OpenRouter and others work too).
 
 ```bash
-cp .env.example .env
-# then edit .env: fill in the API key for your chosen model (GEMINI_API_KEY by default),
-# and optionally set LLM_MODEL to use a different provider/model
-```
-
-`LLM_MODEL` takes any litellm-supported `provider/model` string (e.g. `openai/gpt-4o`,
-`anthropic/claude-sonnet-5`) — set that provider's API key instead of `GEMINI_API_KEY`. The backend
-validates this at startup and refuses to boot if the configured model's key is missing.
-
-OpenRouter works too, with the underlying model as a third segment — e.g.
-`openrouter/anthropic/claude-sonnet-4.5`, with `OPENROUTER_API_KEY` set. Enrichment asks for
-structured JSON output, so pick a model that supports it; ones that don't will fail every
-enrichment rather than degrading.
-
-**Dev** — hot reload on both services:
-
-```bash
+git clone https://github.com/1995es/bookmarks-archive.git
+cd bookmarks-archive
+cp .env.example .env        # then put your key in GEMINI_API_KEY
 docker compose up --build
 ```
 
-- Backend: http://localhost:8000 (interactive API docs at `/docs`)
-- Frontend: http://localhost:5173
+Open http://localhost:5173, paste the first link from that pile of tabs, and close the tab.
 
-**Prod** — nginx-served static frontend, no source mounts:
+## Going further
 
-```bash
-docker compose -f docker-compose.prod.yml up --build
-```
-
-- Backend: http://localhost:8000
-- Frontend: http://localhost:80
-
-### Data persistence
-
-There is no database container. SQLite isn't a server process — it's a file the backend reads and
-writes directly.
-
-In dev, that file lives at `./data/bookmarks.db` on the host, bind-mounted into the container at
-`/data`. You can open it directly with any SQLite client while the stack is running:
-
-```bash
-sqlite3 ./data/bookmarks.db
-```
-
-In prod, the database lives at `/srv/bookmarks-archive/data/bookmarks.db` on the host (set
-`BOOKMARKS_DATA_DIR` to put it elsewhere), bind-mounted at `/data`. Create that directory before
-the first start and give it to the non-root user the prod image runs as:
-
-```bash
-sudo mkdir -p /srv/bookmarks-archive/data && sudo chown -R 999:999 /srv/bookmarks-archive/data
-```
-
-Without that `chown` the backend fails with a "readonly database" error. The file is a plain path
-on the host, so backups and `sqlite3` can reach it directly, and nothing in `docker compose down`
-removes it.
-
-### Running without Docker
-
-```bash
-cd backend
-uv sync
-GEMINI_API_KEY=... uv run uvicorn app.main:app --reload --port 8000
-```
-
-```bash
-cd frontend
-npm install
-npm run dev   # set VITE_API_URL if the backend isn't at http://localhost:8000
-```
-
-The root `.env` is only read by `docker compose` (it substitutes `${GEMINI_API_KEY}`, `${LLM_MODEL}`
-and friends into the compose files); running these directly needs the variables exported in your
-shell.
-
-## Contributing
-
-Checks before opening a PR:
-
-```bash
-cd backend && uv run pytest && uv run ruff check . && uv run ruff format --check .
-cd frontend && npm run lint && npm run format:check && npm run typecheck && npm run test:run && npm run build
-```
-
-`frontend/src/types.ts` is a hand-maintained mirror of the backend's Pydantic schemas — nothing
-fails at build time if the two drift, so changes to one need mirroring in the other.
+- **[RUNNING.md](RUNNING.md)** — choosing a different model, the production setup, where your data
+  lives and how to back it up, and running without Docker.
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — how it works under the hood.
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — the checks to run before opening a PR.
 
 ## License
 

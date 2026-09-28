@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listBookmarks } from "./api";
 import type { BookmarkSortBy, BookmarkSortOrder } from "./api";
 import type { Bookmark, BookmarkId, BookmarkType } from "./types";
-import { PAGE_SIZE } from "./utils";
+import { PAGE_SIZE, TYPE_LABELS } from "./utils";
 import { useMediaQuery } from "./useMediaQuery";
 import { useColumnVisibility } from "./useColumnVisibility";
+import { useSidebarCollapsed } from "./useSidebarCollapsed";
 import AddBookmarkForm from "./components/AddBookmarkForm";
 import FiltersBar from "./components/FiltersBar";
 import BookmarksTable from "./components/BookmarksTable";
@@ -14,6 +15,9 @@ import Pagination from "./components/Pagination";
 import BookmarkDetailModal from "./components/BookmarkDetailModal";
 import ErrorBanner from "./components/ErrorBanner";
 import ColumnsControl from "./components/ColumnsControl";
+import Sidebar from "./components/Sidebar";
+import TypeChips from "./components/TypeChips";
+import { BookmarkIcon } from "./components/icons";
 
 export default function App() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -36,6 +40,11 @@ export default function App() {
 
   // Below this width the five-column table overflows the viewport; cards replace it.
   const isNarrow = useMediaQuery("(max-width: 640px)");
+  // Between the phone layout and a comfortable desktop, a full sidebar would squeeze the table,
+  // so the rail is forced there and the reader's collapse preference only applies above it.
+  const isMedium = useMediaQuery("(max-width: 1024px)");
+  const [sidebarCollapsedPreference, toggleSidebarCollapsed] = useSidebarCollapsed();
+  const sidebarCollapsed = isMedium || sidebarCollapsedPreference;
 
   // Monotonic counter guarding against out-of-order responses: a slow earlier
   // request must not overwrite the list rendered by a later one.
@@ -140,75 +149,119 @@ export default function App() {
 
   const selectedBookmark = bookmarks.find((bookmark) => bookmark.id === selectedId) ?? null;
 
+  const heading = filterType ? TYPE_LABELS[filterType] : "All bookmarks";
+
+  const list =
+    bookmarks.length > 0 &&
+    (isNarrow ? (
+      <BookmarksList
+        bookmarks={bookmarks}
+        visibility={columnVisibility}
+        onOpenDetail={setSelectedId}
+      />
+    ) : (
+      <BookmarksTable
+        bookmarks={bookmarks}
+        visibility={columnVisibility}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onToggleSort={toggleSort}
+        onOpenDetail={setSelectedId}
+      />
+    ));
+
+  // "Loading…" replaces the list only when there is nothing to replace it with. A refresh with
+  // rows already on screen (every poll, and every create/edit/delete) keeps them rendered:
+  // swapping the list for a status line and back makes a freshly added bookmark vanish and
+  // reappear, which is exactly the moment the enrichment animation plays.
+  const status =
+    bookmarks.length === 0 &&
+    (loading ? (
+      <div className="status-line">Loading…</div>
+    ) : (
+      <div className="status-line">No bookmarks yet</div>
+    ));
+
+  const filters = (
+    <FiltersBar filterTag={filterTag} onFilterTagChange={setFilterTag}>
+      <ColumnsControl visibility={columnVisibility} onToggleColumn={toggleColumn} />
+    </FiltersBar>
+  );
+
   return (
-    <div className="page">
-      <h1>Bookmarks</h1>
-
-      {error && <ErrorBanner message={error} />}
-
-      <AddBookmarkForm onCreated={refresh} onError={(message) => setError(message || null)} />
-
-      {/* On a phone the filters, sort and pagination ride together in a sticky bar: the list is
-          thousands of pixels tall, and page controls parked at the bottom of it are unreachable. */}
-      <div className={isNarrow ? "controls controls-sticky" : "controls"}>
-        <FiltersBar
-          filterTag={filterTag}
-          onFilterTagChange={setFilterTag}
+    <div className={sidebarCollapsed && !isNarrow ? "app-shell app-shell-collapsed" : "app-shell"}>
+      {!isNarrow && (
+        <Sidebar
           filterType={filterType}
           onFilterTypeChange={setFilterType}
-        >
-          <ColumnsControl visibility={columnVisibility} onToggleColumn={toggleColumn} />
-        </FiltersBar>
-        {isNarrow && (
-          <div className="controls-row">
-            <SortControl sortBy={sortBy} sortOrder={sortOrder} onSortChange={setSort} />
-            {total > 0 && (
-              <Pagination
-                compact
-                offset={offset}
-                total={total}
-                pageSize={PAGE_SIZE}
-                onOffsetChange={goToOffset}
-              />
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* "Loading…" replaces the list only when there is nothing to replace it with. A refresh
-          with rows already on screen (every poll, and every create/edit/delete) keeps them
-          rendered: swapping the list for a status line and back makes a freshly added bookmark
-          vanish and reappear, which is exactly the moment the enrichment animation plays. */}
-      {loading && bookmarks.length === 0 && <div className="status-line">Loading…</div>}
-
-      {!loading && bookmarks.length === 0 && <div className="status-line">No bookmarks yet</div>}
-
-      {bookmarks.length > 0 &&
-        (isNarrow ? (
-          <BookmarksList
-            bookmarks={bookmarks}
-            visibility={columnVisibility}
-            onOpenDetail={setSelectedId}
-          />
-        ) : (
-          <BookmarksTable
-            bookmarks={bookmarks}
-            visibility={columnVisibility}
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            onToggleSort={toggleSort}
-            onOpenDetail={setSelectedId}
-          />
-        ))}
-
-      {!isNarrow && total > 0 && (
-        <Pagination
-          offset={offset}
-          total={total}
-          pageSize={PAGE_SIZE}
-          onOffsetChange={goToOffset}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={isMedium ? undefined : toggleSidebarCollapsed}
         />
       )}
+
+      <main className="main">
+        {isNarrow && (
+          <div className="topbar">
+            <span className="brand-mark">
+              <BookmarkIcon size={14} />
+            </span>
+            <span className="sidebar-brand-name">Bookmarks</span>
+          </div>
+        )}
+
+        <header className="main-header">
+          <h1>{heading}</h1>
+          {total > 0 && <span className="main-header-count">{total}</span>}
+        </header>
+
+        {error && <ErrorBanner message={error} />}
+
+        <AddBookmarkForm onCreated={refresh} onError={(message) => setError(message || null)} />
+
+        {isNarrow ? (
+          <>
+            {/* On a phone the filters, sort and pagination ride together in a sticky bar: the
+                list is thousands of pixels tall, and page controls parked at the bottom of it
+                are unreachable. */}
+            <div className="controls controls-sticky">
+              {filters}
+              <TypeChips filterType={filterType} onFilterTypeChange={setFilterType} />
+              <div className="controls-row">
+                <SortControl sortBy={sortBy} sortOrder={sortOrder} onSortChange={setSort} />
+                {total > 0 && (
+                  <Pagination
+                    compact
+                    offset={offset}
+                    total={total}
+                    pageSize={PAGE_SIZE}
+                    onOffsetChange={goToOffset}
+                  />
+                )}
+              </div>
+            </div>
+            {status}
+            {list}
+          </>
+        ) : (
+          // The wide layout groups the list with everything that acts on it: the filters as its
+          // toolbar, pagination as its footer.
+          <section>
+            <div className="panel-toolbar">{filters}</div>
+            {status}
+            {list}
+            {total > 0 && (
+              <div className="panel-footer">
+                <Pagination
+                  offset={offset}
+                  total={total}
+                  pageSize={PAGE_SIZE}
+                  onOffsetChange={goToOffset}
+                />
+              </div>
+            )}
+          </section>
+        )}
+      </main>
 
       {selectedBookmark && (
         <BookmarkDetailModal

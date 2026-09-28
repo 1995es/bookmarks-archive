@@ -45,7 +45,7 @@ describe("single add", () => {
     createBookmarkMock.mockResolvedValue(created("https://example.com"));
     const { user, onCreated } = renderForm();
 
-    const input = screen.getByPlaceholderText("URL");
+    const input = screen.getByPlaceholderText(/paste a url/i);
     await user.type(input, "  https://example.com  ");
     await user.click(screen.getByRole("button", { name: "Add" }));
 
@@ -60,19 +60,19 @@ describe("single add", () => {
     createBookmarkMock.mockRejectedValue(new Error("Bookmark URL already exists"));
     const { user, onError, onCreated } = renderForm();
 
-    await user.type(screen.getByPlaceholderText("URL"), "https://dupe.example");
+    await user.type(screen.getByPlaceholderText(/paste a url/i), "https://dupe.example");
     await user.click(screen.getByRole("button", { name: "Add" }));
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith("Bookmark URL already exists"));
     expect(onCreated).not.toHaveBeenCalled();
-    expect(screen.getByPlaceholderText("URL")).toHaveValue("https://dupe.example");
+    expect(screen.getByPlaceholderText(/paste a url/i)).toHaveValue("https://dupe.example");
   });
 
   it("disables Add until a url is typed", async () => {
     const { user } = renderForm();
 
     expect(screen.getByRole("button", { name: "Add" })).toBeDisabled();
-    await user.type(screen.getByPlaceholderText("URL"), "https://example.com");
+    await user.type(screen.getByPlaceholderText(/paste a url/i), "https://example.com");
     expect(screen.getByRole("button", { name: "Add" })).toBeEnabled();
   });
 });

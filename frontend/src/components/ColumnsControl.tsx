@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ColumnVisibility, ToggleableColumn } from "../useColumnVisibility";
 import { COLUMN_LABELS, TOGGLEABLE_COLUMNS } from "../useColumnVisibility";
+import { ChevronDownIcon, ColumnsIcon } from "./icons";
 
 interface ColumnsControlProps {
   visibility: ColumnVisibility;
@@ -47,21 +48,9 @@ export default function ColumnsControl({ visibility, onToggleColumn }: ColumnsCo
         aria-haspopup="true"
         onClick={() => setOpen((isOpen) => !isOpen)}
       >
+        <ColumnsIcon className="columns-icon" />
         Columns
-        <svg
-          className="columns-chevron"
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+        <ChevronDownIcon className="columns-chevron" size={12} />
       </button>
       {open && (
         <div className="columns-menu">

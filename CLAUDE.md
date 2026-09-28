@@ -64,7 +64,9 @@ architecture. Everything else is on demand in other files it links to: `RUNNING.
 dev/prod, data persistence and backups, running without Docker), `CONTRIBUTING.md` (stack and
 pre-PR checks), and `ARCHITECTURE.md`, which stays high-level and links out to
 `backend/ARCHITECTURE.md` and `frontend/ARCHITECTURE.md` for detail. Don't grow the README back
-into a reference doc.
+into a reference doc. It embeds `docs/demo.gif`, a recording of the desktop UI adding a bookmark
+and enriching it; it goes stale whenever the UI changes visibly, so re-record it rather than leave
+an old look on the front page.
 
 The `ARCHITECTURE.md` files are for humans reading the project; the `CLAUDE.md` files are agent
 instructions. Never link a reader-facing doc at a `CLAUDE.md`. They overlap in subject matter, so

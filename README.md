@@ -11,6 +11,8 @@ go to be forgotten.
 
 Bookmarks Archive is a small, self-hosted place to put those links instead.
 
+![Pasting a Paul Graham essay URL into Bookmarks Archive: the row appears at once with the bare URL shimmering, then resolves into the essay's title, a description and tags](docs/demo.gif)
+
 ## How it helps
 
 - **Saving takes a second.** Paste a URL and you're done — no title, no description, no tags

@@ -1,9 +1,11 @@
+import { ChevronLeftIcon, ChevronRightIcon } from "./icons";
+
 interface PaginationProps {
   offset: number;
   total: number;
   pageSize: number;
   onOffsetChange: (offset: number) => void;
-  /** Chevrons instead of word buttons, for the sticky mobile control bar. */
+  /** Bare chevrons instead of labelled buttons, for the sticky mobile control bar. */
   compact?: boolean;
 }
 
@@ -30,7 +32,8 @@ export default function Pagination({
         disabled={!hasPrevPage}
         onClick={() => onOffsetChange(Math.max(0, offset - pageSize))}
       >
-        {compact ? "‹" : "Previous"}
+        <ChevronLeftIcon size={14} />
+        {!compact && "Previous"}
       </button>
       <button
         type="button"
@@ -38,7 +41,8 @@ export default function Pagination({
         disabled={!hasNextPage}
         onClick={() => onOffsetChange(offset + pageSize)}
       >
-        {compact ? "›" : "Next"}
+        {!compact && "Next"}
+        <ChevronRightIcon size={14} />
       </button>
     </div>
   );

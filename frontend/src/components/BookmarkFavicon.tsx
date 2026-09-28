@@ -1,15 +1,6 @@
 import { useState } from "react";
 import type { Bookmark } from "../types";
-
-/** The host, minus a leading www — the same shape the backend's placeholder name has.
- *  Kept private: exporting a non-component from a component file breaks fast refresh. */
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
+import { hostOf } from "../utils";
 
 interface BookmarkFaviconProps {
   bookmark: Bookmark;

@@ -3,6 +3,7 @@ import { deleteBookmark, retryEnrichment, updateBookmark } from "../api";
 import type { Bookmark, BookmarkInput, BookmarkType } from "../types";
 import { BOOKMARK_TYPES, formatDate, parseTags } from "../utils";
 import BookmarkFavicon from "./BookmarkFavicon";
+import { CloseIcon, TypeIcon } from "./icons";
 
 interface EditDraft {
   name: string;
@@ -125,7 +126,7 @@ export default function BookmarkDetailModal({
           {!editing && <BookmarkFavicon bookmark={bookmark} className="bookmark-favicon-lg" />}
           <h2>{editing ? "Edit bookmark" : bookmark.name}</h2>
           <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
-            ×
+            <CloseIcon />
           </button>
         </div>
 
@@ -186,7 +187,7 @@ export default function BookmarkDetailModal({
             </label>
 
             <div className="modal-actions">
-              <button type="button" disabled={saving} onClick={saveEdit}>
+              <button type="button" className="button-primary" disabled={saving} onClick={saveEdit}>
                 Save
               </button>
               <button type="button" disabled={saving} onClick={cancelEdit}>
@@ -199,6 +200,7 @@ export default function BookmarkDetailModal({
             <div className="detail-row">
               <span className="detail-label">Status</span>
               <span className={`status-badge status-${bookmark.enrichment_status}`}>
+                <span className="status-dot" aria-hidden="true" />
                 {bookmark.enrichment_status}
               </span>
               {bookmark.enrichment_status === "failed" && (
@@ -239,14 +241,22 @@ export default function BookmarkDetailModal({
 
             <div className="detail-row">
               <span className="detail-label">Type</span>
-              <span className="type-badge">{bookmark.type}</span>
+              <span className="type-badge">
+                <TypeIcon type={bookmark.type} size={12} />
+                {bookmark.type}
+              </span>
             </div>
 
             <div className="modal-actions">
               <button type="button" onClick={startEdit}>
                 Edit
               </button>
-              <button type="button" disabled={deleting} onClick={handleDelete}>
+              <button
+                type="button"
+                className="button-danger"
+                disabled={deleting}
+                onClick={handleDelete}
+              >
                 {deleting ? "Deleting…" : "Delete"}
               </button>
             </div>

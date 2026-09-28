@@ -258,3 +258,30 @@ describe("column visibility", () => {
     expect(screen.getByRole("columnheader", { name: "Type" })).toBeInTheDocument();
   });
 });
+
+describe("sidebar", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("collapses to the icon rail and remembers the choice across a remount", async () => {
+    listBookmarksMock.mockResolvedValue(page(["one"]));
+
+    const user = userEvent.setup();
+    const { unmount } = render(<App />);
+    await screen.findByRole("link", { name: "one" });
+
+    await user.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(screen.getByRole("button", { name: "Expand sidebar" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    // Collapsed hides the labels visually only: the nav keeps its accessible names.
+    expect(screen.getByRole("button", { name: "Posts" })).toBeInTheDocument();
+
+    unmount();
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
+  });
+});

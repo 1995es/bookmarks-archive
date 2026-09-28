@@ -3,6 +3,14 @@ import type { BookmarkType } from "./types";
 export const BOOKMARK_TYPES: BookmarkType[] = ["post", "video", "tweet", "site"];
 export const PAGE_SIZE = 20;
 
+/** Plural labels for the type navigation (sidebar and the narrow layout's chips). */
+export const TYPE_LABELS: Record<BookmarkType, string> = {
+  post: "Posts",
+  video: "Videos",
+  tweet: "Tweets",
+  site: "Sites",
+};
+
 export function parseTags(input: string): string[] {
   return input
     .split(",")
@@ -15,6 +23,15 @@ export function parseBulkUrls(input: string): string[] {
     .split(/\s+/)
     .map((url) => url.trim())
     .filter((url) => url.length > 0);
+}
+
+/** The host, minus a leading www — the same shape the backend's placeholder name has. */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
 }
 
 export function formatDate(iso: string): string {

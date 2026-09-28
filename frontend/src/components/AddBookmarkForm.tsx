@@ -9,6 +9,7 @@ import {
   parseBulkUrls,
   parseTags,
 } from "../utils";
+import { CloseIcon, LinkIcon } from "./icons";
 
 interface NewBookmarkForm {
   name: string;
@@ -117,7 +118,7 @@ export default function AddBookmarkForm({ onCreated, onError }: AddBookmarkFormP
 
   return (
     <form className="add-form" onSubmit={bulkMode ? handleBulkSubmit : handleAddSubmit}>
-      <div className="add-form-row">
+      <div className="add-form-main">
         {bulkMode ? (
           <textarea
             className="bulk-url-input"
@@ -128,9 +129,10 @@ export default function AddBookmarkForm({ onCreated, onError }: AddBookmarkFormP
           />
         ) : (
           <div className="clearable-input">
+            <LinkIcon className="add-form-icon" />
             <input
               type="text"
-              placeholder="URL"
+              placeholder="Paste a URL to save"
               value={newBookmark.url}
               onChange={(e) => setNewBookmark({ ...newBookmark, url: e.target.value })}
             />
@@ -141,7 +143,7 @@ export default function AddBookmarkForm({ onCreated, onError }: AddBookmarkFormP
                 aria-label="Clear URL"
                 onClick={() => setNewBookmark({ ...newBookmark, url: "" })}
               >
-                ×
+                <CloseIcon size={14} />
               </button>
             )}
           </div>
@@ -152,10 +154,25 @@ export default function AddBookmarkForm({ onCreated, onError }: AddBookmarkFormP
         </button>
       </div>
 
-      <label className="add-form-toggle">
-        <input type="checkbox" checked={bulkMode} onChange={toggleBulkMode} />
-        Bulk add
-      </label>
+      {/* Mode toggles as pill chips. Each is still a real checkbox inside its label (visually
+          hidden), so it keeps a checkbox's keyboard and screen-reader behaviour. */}
+      <div className="add-form-footer">
+        <label className="chip chip-toggle">
+          <input type="checkbox" checked={bulkMode} onChange={toggleBulkMode} />
+          Bulk add
+        </label>
+        {!bulkMode && newBookmark.url.trim() !== "" && (
+          <label className="chip chip-toggle">
+            <input
+              type="checkbox"
+              checked={showMoreFields}
+              onChange={(e) => setShowMoreFields(e.target.checked)}
+            />
+            Add more details
+          </label>
+        )}
+        <span className="add-form-hint">Name, description and tags are filled in for you.</span>
+      </div>
 
       {bulkMode && bulkSubmitting && (
         <div className="status-line">Adding {parseBulkUrls(bulkText).length} bookmarks…</div>
@@ -177,17 +194,6 @@ export default function AddBookmarkForm({ onCreated, onError }: AddBookmarkFormP
             </ul>
           )}
         </div>
-      )}
-
-      {!bulkMode && newBookmark.url.trim() !== "" && (
-        <label className="add-form-toggle">
-          <input
-            type="checkbox"
-            checked={showMoreFields}
-            onChange={(e) => setShowMoreFields(e.target.checked)}
-          />
-          Add more details
-        </label>
       )}
 
       {!bulkMode && newBookmark.url.trim() !== "" && showMoreFields && (

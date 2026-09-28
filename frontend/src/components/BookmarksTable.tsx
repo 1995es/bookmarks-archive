@@ -3,6 +3,7 @@ import type { Bookmark, BookmarkId } from "../types";
 import type { BookmarkSortBy } from "../api";
 import type { ColumnVisibility } from "../useColumnVisibility";
 import BookmarkName from "./BookmarkName";
+import { ChevronDownIcon, TypeIcon } from "./icons";
 
 interface BookmarksTableProps {
   bookmarks: Bookmark[];
@@ -21,11 +22,16 @@ export default function BookmarksTable({
   onToggleSort,
   onOpenDetail,
 }: BookmarksTableProps) {
-  function sortIndicator(column: BookmarkSortBy): string {
+  function sortIndicator(column: BookmarkSortBy) {
     if (sortBy !== column) {
-      return "";
+      return null;
     }
-    return sortOrder === "asc" ? " ▲" : " ▼";
+    return (
+      <ChevronDownIcon
+        size={12}
+        className={sortOrder === "asc" ? "sort-indicator sort-indicator-asc" : "sort-indicator"}
+      />
+    );
   }
 
   function handleRowClick(id: BookmarkId) {
@@ -55,7 +61,13 @@ export default function BookmarksTable({
     <table className="bookmarks-table">
       <thead>
         <tr>
-          <th className="sortable" onClick={() => onToggleSort("name")}>
+          <th
+            className="sortable"
+            aria-sort={
+              sortBy === "name" ? (sortOrder === "asc" ? "ascending" : "descending") : undefined
+            }
+            onClick={() => onToggleSort("name")}
+          >
             Name{sortIndicator("name")}
           </th>
           {visibility.description && <th className="col-description">Description</th>}
@@ -79,7 +91,11 @@ export default function BookmarksTable({
               <BookmarkName bookmark={bookmark} />
             </td>
             {visibility.description && (
-              <td className="col-description">{bookmark.description ?? ""}</td>
+              <td className="col-description">
+                {/* Clamped to two lines, like the cards: the full text is one click away in
+                    the modal, and unclamped paragraphs make every row a different height. */}
+                <span className="line-clamp">{bookmark.description ?? ""}</span>
+              </td>
             )}
             {visibility.tags && (
               <td>
@@ -94,7 +110,10 @@ export default function BookmarksTable({
             )}
             {visibility.type && (
               <td>
-                <span className="type-badge">{bookmark.type}</span>
+                <span className="type-badge">
+                  <TypeIcon type={bookmark.type} size={12} />
+                  {bookmark.type}
+                </span>
               </td>
             )}
           </tr>

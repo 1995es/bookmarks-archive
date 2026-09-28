@@ -1,6 +1,7 @@
 import type { Bookmark, BookmarkId } from "../types";
 import type { ColumnVisibility } from "../useColumnVisibility";
 import BookmarkName from "./BookmarkName";
+import { TypeIcon } from "./icons";
 
 interface BookmarksListProps {
   bookmarks: Bookmark[];
@@ -25,7 +26,12 @@ export default function BookmarksList({ bookmarks, visibility, onOpenDetail }: B
               <p className="bookmark-card-description">{bookmark.description}</p>
             )}
             <div className="bookmark-card-meta">
-              {visibility.type && <span className="type-badge">{bookmark.type}</span>}
+              {visibility.type && (
+                <span className="type-badge">
+                  <TypeIcon type={bookmark.type} size={12} />
+                  {bookmark.type}
+                </span>
+              )}
               {visibility.tags && bookmark.tags.length > 0 && (
                 <div className="tags">
                   {bookmark.tags.map((tag) => (

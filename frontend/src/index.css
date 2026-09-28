@@ -1,64 +1,66 @@
 /*
- * Audyr-style design system: ink on cold-pressed paper.
+ * Design system: scholar's parchment behind clean glass.
  *
- * The interface is a typeset document — white stock, near-black ink, hairline #ededed rules, and
- * shadows soft enough to read as paper grain rather than elevation. There is deliberately no brand
- * accent: hierarchy is carried entirely by type weight, size, and four steps of grey. Inter runs
- * at -0.025em tracking at every size, which is what makes a 12px caption and a 48px headline feel
- * like the same system.
+ * A warm research desk rather than a white page: a parchment canvas, warm ink-dark text, hairline
+ * warm-grey rules, and exactly one colour — a deep teal that marks where you are (the active
+ * sidebar item, a selected chip) and where your attention is (the focus glow). Everything else is
+ * monochrome. Type stays between weights 400 and 500, so hierarchy comes from size, colour and
+ * spacing rather than from bold.
+ *
+ * Structure comes from tone and space, not from outlines: controls are soft sand fills rather
+ * than bordered boxes, the list sits directly on the canvas separated by hairline rules, and
+ * corners are small. A border appears only as a focus state; a shadow only on what floats (the
+ * columns popover and the modal).
  */
 
 :root {
   color-scheme: light;
 
-  /* Colors */
-  --color-ink: #262626;
-  --color-pure-paper: #ffffff;
-  --color-soft-mist: #ededed;
-  --color-charcoal: #171717;
-  --color-ash: #686868;
-  --color-slate: #515151;
-  --color-muted: #737373;
-  --color-fog: #929292;
-  --color-chalk: #cbcbcb;
-  --color-mint-whisper: #ecfdf5;
-  --color-mint-ink: #047857;
+  /* Colors — surfaces, from the canvas up */
+  --color-parchment: #faf8f5;
+  --color-soft-paper: #fdfbfa;
+  --color-sand: #f3f1ec;
+  --color-sand-deep: #ebe8e2;
 
-  /* Extensions to the reference palette, which ships no negative state: this app has to render
-     failed enrichment and API errors. Built as the mint badge's mirror image — a pale wash with
-     a darkened text tone — so it stays inside the badge vocabulary instead of reading as a
-     second brand colour. */
-  --color-rose-whisper: #fef2f2;
-  --color-rose-ink: #b3261e;
+  /* Colors — lines */
+  --color-rule: #e7e4de;
+  --color-warm-mist: #d1d1cd;
+
+  /* Colors — ink, from quietest to loudest */
+  --color-ash: #92918b;
+  --color-graphite: #72706b;
+  --color-ink: #27251e;
+  --color-ink-hover: #3a372e;
+
+  /* The one chromatic colour. Fills and focus only — never body text. */
+  --color-teal: #016a71;
+  --color-teal-hover: #015a60;
+  --color-teal-glow: rgba(1, 106, 113, 0.4);
+  --color-teal-halo: rgba(1, 106, 113, 0.1);
+
+  /* Negative state. The reference palette has none, and this app has to render failed
+     enrichment and API errors; a pale wash with a darkened text tone keeps it inside the badge
+     vocabulary instead of reading as a second brand colour. */
+  --color-rose-whisper: #fbf0ee;
+  --color-rose-ink: #a8321f;
 
   /* Typography */
-  --font-inter:
+  --font-sans:
     "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     sans-serif;
 
-  --text-caption: 12px;
-  --leading-caption: 1.5;
-  --text-body-sm: 14px;
-  --leading-body-sm: 1.5;
-  --text-body: 16px;
-  --leading-body: 1.56;
-  --text-subheading: 18px;
-  --leading-subheading: 1.63;
+  --text-caption: 11px;
+  --text-body-sm: 12px;
+  --text-body: 14px;
+  --text-body-lg: 16px;
   --text-heading-sm: 20px;
-  --leading-heading-sm: 1.5;
   --text-heading: 24px;
-  --leading-heading: 1.4;
-  --text-heading-lg: 30px;
-  --leading-heading-lg: 1.38;
-  --text-display: 48px;
-  --leading-display: 1.11;
-
-  /* One tracking value, expressed in em so it scales with every size. */
-  --tracking: -0.025em;
+  --leading-tight: 1.25;
+  --leading-body: 1.43;
+  --leading-relaxed: 1.5;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
-  --font-weight-semibold: 600;
 
   /* Spacing — 4px base */
   --spacing-4: 4px;
@@ -70,26 +72,25 @@
   --spacing-32: 32px;
   --spacing-40: 40px;
   --spacing-48: 48px;
-  --spacing-56: 56px;
-  --spacing-64: 64px;
   --spacing-80: 80px;
 
   /* Layout */
-  --page-max-width: 1200px;
-  --card-padding: 32px;
+  --sidebar-width: 248px;
+  --sidebar-rail-width: 64px;
+  /* Wider than a reading column: this is a four-column table, and at 900px the name column
+     wraps every title onto three lines. */
+  --page-max-width: 1080px;
 
-  /* Radii — 4 / 8 / 14 / 18 / pill. No intermediate values. */
-  --radius-inputs: 4px;
-  --radius-buttons: 4px;
-  --radius-images: 8px;
-  --radius-cards: 14px;
-  --radius-largepanels: 18px;
-  --radius-badges: 9999px;
+  /* Radii — a closed set, kept small. Pills are for the toggle chips alone. */
+  --radius-tags: 4px;
+  --radius-buttons: 6px;
+  --radius-inputs: 8px;
+  --radius-cards: 12px;
+  --radius-chips: 9999px;
 
-  /* Shadows — paper grain, not elevation. */
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-  --shadow-button: inset 0 1px 0 0 rgba(255, 255, 255, 0.16), 0 1px 2px 0 rgba(0, 0, 0, 0.24);
-  --shadow-panel: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+  /* Shadows — only on what floats. */
+  --shadow-overlay: 0 12px 32px -8px rgba(39, 37, 30, 0.18), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --focus-glow: 0 0 0 3px var(--color-teal-halo);
 }
 
 * {
@@ -98,29 +99,210 @@
 
 body {
   margin: 0;
-  font-family: var(--font-inter);
+  font-family: var(--font-sans);
   /* Inter's alternate glyphs; cv11 gives the single-storey lowercase g a cleaner tail. */
   font-feature-settings: "cv11", "ss01";
-  font-size: var(--text-body-sm);
-  line-height: var(--leading-body-sm);
-  letter-spacing: var(--tracking);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
   color: var(--color-ink);
-  background: var(--color-pure-paper);
+  background: var(--color-parchment);
   -webkit-font-smoothing: antialiased;
 }
 
-.page {
-  max-width: var(--page-max-width);
+h1,
+h2 {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-ink);
+}
+
+/* ---------- App shell ---------- */
+
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  min-height: 100vh;
+  transition: grid-template-columns 0.2s ease;
+}
+
+.main {
+  width: 100%;
+  max-width: calc(var(--page-max-width) + 2 * var(--spacing-40));
   margin: 0 auto;
-  padding: var(--spacing-64) var(--spacing-32) var(--spacing-80);
+  padding: var(--spacing-40) var(--spacing-40) var(--spacing-80);
+  min-width: 0;
+}
+
+.main-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-12);
+  margin-bottom: var(--spacing-20);
 }
 
 h1 {
-  font-size: var(--text-heading-lg);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--leading-heading-lg);
-  margin: 0 0 var(--spacing-32);
+  margin: 0;
+  font-size: var(--text-heading);
+  line-height: var(--leading-tight);
+}
+
+.main-header-count {
+  color: var(--color-ash);
+  font-size: var(--text-heading);
+  line-height: var(--leading-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Sidebar ---------- */
+
+/* A slightly darker parchment than the canvas, so the rail reads as the desk's edge rather than
+   a panel floating over it. */
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-24);
+  padding: var(--spacing-16) var(--spacing-12);
+  background: var(--color-sand);
+  overflow-y: auto;
+}
+
+.sidebar-brand,
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  padding: var(--spacing-4) var(--spacing-8);
+}
+
+.sidebar-brand-name {
+  font-size: var(--text-body-lg);
+  font-weight: var(--font-weight-medium);
   color: var(--color-ink);
+}
+
+.brand-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-buttons);
+  background: var(--color-ink);
+  color: var(--color-parchment);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-section-label {
+  margin: var(--spacing-16) var(--spacing-12) var(--spacing-4);
+  font-size: var(--text-body-sm);
+  color: var(--color-ash);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: var(--spacing-8) var(--spacing-12);
+  border: none;
+  border-radius: var(--radius-inputs);
+  background: transparent;
+  color: var(--color-graphite);
+  font-weight: var(--font-weight-regular);
+  text-align: left;
+}
+
+.nav-item:hover:not(:disabled) {
+  background: var(--color-sand-deep);
+  color: var(--color-ink);
+}
+
+.nav-item svg {
+  flex: none;
+}
+
+/* The only chromatic surface in the app: where you are. */
+.nav-item.nav-item-active,
+.nav-item.nav-item-active:hover:not(:disabled) {
+  background: var(--color-teal);
+  color: #fff;
+}
+
+/* Collapse toggle, pinned to the bottom of the rail in both states. */
+.sidebar-toggle {
+  margin-top: auto;
+  align-self: flex-start;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  color: var(--color-ash);
+}
+
+.sidebar-toggle:hover:not(:disabled) {
+  background: var(--color-sand-deep);
+  color: var(--color-ink);
+}
+
+/* The icon rail: the reader's choice above 1024px, forced between 641px and 1024px (App decides
+   which, and sets these classes). Labels are visually hidden rather than removed, so the nav
+   buttons keep their accessible names, and each carries a `title` for hover. */
+.app-shell.app-shell-collapsed {
+  grid-template-columns: var(--sidebar-rail-width) minmax(0, 1fr);
+}
+
+.sidebar-collapsed {
+  padding: var(--spacing-16) var(--spacing-8);
+  align-items: center;
+}
+
+.sidebar-collapsed .sidebar-brand {
+  padding: var(--spacing-4) 0;
+}
+
+.sidebar-collapsed .sidebar-brand-name,
+.sidebar-collapsed .nav-item-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The heading becomes a divider: zero-size text is still read out. */
+.sidebar-collapsed .sidebar-section-label {
+  height: 1px;
+  margin: var(--spacing-12) var(--spacing-8);
+  overflow: hidden;
+  font-size: 0;
+  background: var(--color-rule);
+}
+
+.sidebar-collapsed .nav-item {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.sidebar-collapsed .sidebar-toggle {
+  align-self: center;
+}
+
+@media (max-width: 1024px) {
+  .main {
+    padding-inline: var(--spacing-24);
+  }
 }
 
 /* ---------- Form controls ---------- */
@@ -130,111 +312,298 @@ select,
 textarea {
   font-family: inherit;
   font-feature-settings: inherit;
-  font-size: var(--text-body-sm);
-  line-height: var(--leading-body-sm);
-  letter-spacing: inherit;
-  padding: 9px 12px;
-  border: 1px solid var(--color-soft-mist);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  padding: 7px var(--spacing-12);
+  border: 1px solid transparent;
   border-radius: var(--radius-inputs);
-  background: var(--color-pure-paper);
+  background: var(--color-sand);
   color: var(--color-ink);
   outline: none;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 input[type="text"]::placeholder,
 textarea::placeholder {
-  color: var(--color-fog);
+  color: var(--color-ash);
 }
 
 input[type="text"]:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--color-ink);
+  border-color: var(--color-teal-glow);
+  background: var(--color-soft-paper);
+  box-shadow: var(--focus-glow);
+}
+
+select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2372706b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
 }
 
 input[type="checkbox"] {
-  accent-color: var(--color-ink);
+  accent-color: var(--color-teal);
   width: 15px;
   height: 15px;
+  margin: 0;
 }
 
-/* Ghost outline button — the default. */
+/* Soft button — the default: a sand fill, no outline. */
 button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   font-family: inherit;
   font-feature-settings: inherit;
-  font-size: var(--text-body-sm);
+  font-size: var(--text-body);
   font-weight: var(--font-weight-medium);
-  letter-spacing: inherit;
-  padding: 9px 16px;
-  border: 1px solid var(--color-soft-mist);
+  line-height: var(--leading-body);
+  padding: 7px var(--spacing-12);
+  border: 1px solid transparent;
   border-radius: var(--radius-buttons);
-  background: var(--color-pure-paper);
+  background: var(--color-sand);
   color: var(--color-ink);
   cursor: pointer;
   transition:
     background-color 0.12s ease,
-    border-color 0.12s ease;
+    border-color 0.12s ease,
+    color 0.12s ease;
 }
 
 button:hover:not(:disabled) {
-  border-color: var(--color-chalk);
-  background: #fafafa;
+  background: var(--color-sand-deep);
 }
 
 button:focus-visible {
-  outline: 2px solid var(--color-ink);
-  outline-offset: 1px;
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
 }
 
 button:disabled {
-  color: var(--color-fog);
+  color: var(--color-ash);
   cursor: not-allowed;
 }
 
-/* Dark filled button — the only fill in the system, and the page's single visual anchor. */
+button svg {
+  flex: none;
+}
+
+/* Dark filled button — the only fill in the system, reserved for the action that saves. */
 .button-primary {
-  background: var(--color-ink);
+  padding-inline: var(--spacing-16);
   border-color: var(--color-ink);
-  color: var(--color-pure-paper);
-  box-shadow: var(--shadow-button);
+  background: var(--color-ink);
+  color: var(--color-parchment);
 }
 
 .button-primary:hover:not(:disabled) {
-  background: var(--color-charcoal);
-  border-color: var(--color-charcoal);
+  border-color: var(--color-ink-hover);
+  background: var(--color-ink-hover);
 }
 
 .button-primary:disabled {
-  background: var(--color-soft-mist);
-  border-color: var(--color-soft-mist);
-  color: var(--color-fog);
-  box-shadow: none;
+  border-color: var(--color-sand-deep);
+  background: var(--color-sand-deep);
+  color: var(--color-ash);
+}
+
+.button-danger {
+  color: var(--color-rose-ink);
+}
+
+.button-danger:hover:not(:disabled) {
+  background: var(--color-rose-whisper);
+}
+
+.icon-button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  color: var(--color-graphite);
+}
+
+.icon-button:hover:not(:disabled) {
+  color: var(--color-ink);
+}
+
+/* ---------- Chips ---------- */
+
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px var(--spacing-12);
+  border: 1px solid transparent;
+  border-radius: var(--radius-chips);
+  background: transparent;
+  color: var(--color-graphite);
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--leading-body);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chip:hover:not(:disabled) {
+  background: var(--color-sand-deep);
+  color: var(--color-ink);
+}
+
+.chip.chip-active,
+.chip.chip-active:hover:not(:disabled),
+.chip-toggle:has(input:checked),
+.chip-toggle:has(input:checked):hover {
+  border-color: var(--color-teal);
+  background: var(--color-teal);
+  color: #fff;
+}
+
+/* The checkbox stays in the label for keyboard and screen readers; the chip is its visible form. */
+.chip-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.chip-toggle:has(input:focus-visible) {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
 }
 
 /* ---------- Error banner ---------- */
 
 .error-banner {
   background: var(--color-rose-whisper);
-  border: 1px solid #f6d9d7;
   color: var(--color-rose-ink);
   padding: var(--spacing-12) var(--spacing-16);
-  border-radius: var(--radius-images);
+  border-radius: var(--radius-inputs);
   margin-bottom: var(--spacing-20);
-  font-size: var(--text-body-sm);
 }
 
-/* ---------- Add form ---------- */
+/* ---------- Add form (the hero input) ---------- */
 
+/* The page's focal object: one sand block holding the URL field, the Add action and the mode
+   chips. No outline at rest; it lifts to paper and glows teal while focused — the one decorative
+   effect the system allows. */
 .add-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-12);
-  padding: var(--spacing-20);
+  padding: var(--spacing-12);
   margin-bottom: var(--spacing-32);
-  border: 1px solid var(--color-soft-mist);
+  border: 1px solid transparent;
   border-radius: var(--radius-cards);
-  background: var(--color-pure-paper);
-  box-shadow: var(--shadow-card);
+  background: var(--color-sand);
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.add-form:focus-within {
+  border-color: var(--color-teal-glow);
+  background: var(--color-soft-paper);
+  box-shadow: 0 0 0 4px var(--color-teal-halo);
+}
+
+.add-form-main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-8);
+}
+
+.clearable-input {
+  position: relative;
+  flex: 1 1 160px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.add-form-icon {
+  position: absolute;
+  left: var(--spacing-8);
+  color: var(--color-ash);
+  pointer-events: none;
+}
+
+/* Inside the hero the fields are borderless — the card is the outline, and the glow is the
+   focus state. */
+.add-form-main input[type="text"],
+.add-form-main textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--text-body-lg);
+  line-height: var(--leading-relaxed);
+}
+
+.add-form-main input[type="text"] {
+  padding: 7px 36px 7px 34px;
+}
+
+.add-form-main textarea {
+  padding: 7px var(--spacing-8);
+  resize: vertical;
+}
+
+.add-form-main .button-primary {
+  flex: none;
+  min-height: 40px;
+}
+
+.clear-input-button {
+  position: absolute;
+  right: var(--spacing-4);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-buttons);
+  background: transparent;
+  color: var(--color-ash);
+}
+
+.clear-input-button:hover:not(:disabled) {
+  color: var(--color-ink);
+  background: var(--color-sand);
+}
+
+.add-form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-8);
+  margin-top: var(--spacing-8);
+  padding: 0 var(--spacing-4);
+}
+
+.add-form-hint {
+  margin-left: auto;
+  font-size: var(--text-body-sm);
+  color: var(--color-ash);
+}
+
+/* Everything that opens below the field (bulk progress, results, extra fields) sits under a
+   hairline, still inside the card. */
+.add-form > .add-form-row,
+.add-form > .bulk-add-summary,
+.add-form > .status-line {
+  margin-top: var(--spacing-12);
+  padding: var(--spacing-12) var(--spacing-4) 0;
+  border-top: 1px solid var(--color-rule);
 }
 
 .add-form-row {
@@ -244,96 +613,86 @@ button:disabled {
   align-items: center;
 }
 
-.add-form input {
-  flex: 1 1 160px;
-}
-
-.clearable-input {
-  position: relative;
-  flex: 1 1 160px;
-  display: flex;
-}
-
-.clearable-input input {
-  flex: 1 1 auto;
-  width: 100%;
-  padding-right: 32px;
-}
-
-.clear-input-button {
-  position: absolute;
-  top: 50%;
-  right: 6px;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-inputs);
-  background: transparent;
-  color: var(--color-fog);
-  font-size: var(--text-body-sm);
-  line-height: 1;
-}
-
-.clear-input-button:hover:not(:disabled) {
-  color: var(--color-ink);
-  background: var(--color-soft-mist);
-}
-
-.add-form-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-8);
-  font-size: var(--text-body-sm);
-  color: var(--color-ash);
-  cursor: pointer;
-  user-select: none;
-}
-
-.add-form-toggle input {
-  flex: 0 0 auto;
-}
-
-.bulk-url-input {
-  resize: vertical;
+.add-form-row input {
   flex: 1 1 160px;
 }
 
 .bulk-add-summary p {
   margin: 0 0 var(--spacing-4);
-  font-size: var(--text-body-sm);
-  color: var(--color-ash);
+  color: var(--color-graphite);
 }
 
 .bulk-add-failures {
   margin: 0;
   padding-left: var(--spacing-20);
-  font-size: var(--text-body-sm);
   color: var(--color-rose-ink);
 }
 
-/* ---------- Filters, sort, pagination ---------- */
+.bulk-add-failures strong {
+  font-weight: var(--font-weight-medium);
+}
+
+/* ---------- Panel: toolbar, list, footer ---------- */
+
+/* No card: the toolbar, the rows and the footer sit straight on the canvas, held together by
+   spacing and the rows' hairlines. */
+.panel-toolbar {
+  padding-bottom: var(--spacing-12);
+}
+
+.panel-footer {
+  padding-top: var(--spacing-16);
+}
 
 .filters {
   display: flex;
+  align-items: center;
   gap: var(--spacing-8);
-  margin-bottom: var(--spacing-20);
 }
 
-.filters input {
-  flex: 0 1 240px;
+.search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 1 280px;
+  min-width: 0;
 }
 
-/* Columns menu: a popover of checkboxes riding at the end of the filters row. The panel is a
-   card — hairline, 14px radius, --shadow-card — so it reads as a sheet lifted off the page
-   rather than a menu with its own chrome. */
+.search-field-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--color-ash);
+  pointer-events: none;
+}
+
+.search-field input {
+  width: 100%;
+  padding-left: 34px;
+}
+
+/* Columns menu: a popover of checkboxes at the end of the filters row. */
 .columns-control {
   position: relative;
   margin-left: auto;
+}
+
+.columns-trigger {
+  background: transparent;
+  color: var(--color-graphite);
+}
+
+.columns-trigger:hover:not(:disabled),
+.columns-trigger[aria-expanded="true"] {
+  color: var(--color-ink);
+}
+
+.columns-chevron {
+  color: var(--color-ash);
+  transition: transform 0.12s ease;
+}
+
+.columns-trigger[aria-expanded="true"] .columns-chevron {
+  transform: rotate(180deg);
 }
 
 .columns-menu {
@@ -343,97 +702,82 @@ button:disabled {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-8);
-  min-width: 168px;
-  padding: var(--spacing-12);
-  background: var(--color-pure-paper);
-  border: 1px solid var(--color-soft-mist);
-  border-radius: var(--radius-cards);
-  box-shadow: var(--shadow-card);
-}
-
-.columns-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-8);
-}
-
-.columns-chevron {
-  color: var(--color-fog);
-  transition: transform 0.12s ease;
-}
-
-.columns-trigger[aria-expanded="true"] .columns-chevron {
-  transform: rotate(180deg);
+  gap: 2px;
+  min-width: 184px;
+  padding: var(--spacing-8);
+  background: var(--color-soft-paper);
+  border-radius: var(--radius-inputs);
+  box-shadow: var(--shadow-overlay);
 }
 
 .columns-menu-label {
   margin: 0;
-  padding-bottom: var(--spacing-8);
-  border-bottom: 1px solid var(--color-soft-mist);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-semibold);
+  padding: var(--spacing-4) var(--spacing-8) var(--spacing-8);
+  font-size: var(--text-body-sm);
   color: var(--color-ash);
 }
 
 .columns-menu-item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-8);
-  font-size: var(--text-body-sm);
-  color: var(--color-ash);
+  gap: 10px;
+  padding: 6px var(--spacing-8);
+  border-radius: var(--radius-buttons);
+  color: var(--color-ink);
   cursor: pointer;
 }
 
+.columns-menu-item:hover {
+  background: var(--color-sand);
+}
+
 .status-line {
-  padding: var(--spacing-20) 0;
-  color: var(--color-muted);
-  font-size: var(--text-body-sm);
+  padding: var(--spacing-24) 0;
+  color: var(--color-graphite);
 }
 
 .pagination {
   display: flex;
   align-items: center;
   gap: var(--spacing-8);
-  padding-top: var(--spacing-20);
 }
 
 .pagination-status {
-  color: var(--color-muted);
-  font-size: var(--text-body-sm);
   margin-right: auto;
+  color: var(--color-graphite);
+  font-size: var(--text-body-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.pagination button {
+  padding: 5px 10px;
+  font-size: var(--text-body-sm);
 }
 
 /* ---------- Table (wide viewports) ---------- */
 
+/* Pulled out by one cell's padding on each side, so the text lines up with the heading above
+   while a hovered row's fill still has room around it. */
 .bookmarks-table {
-  width: 100%;
+  width: calc(100% + 2 * var(--spacing-12));
+  margin: 0 calc(-1 * var(--spacing-12));
   border-collapse: collapse;
 }
 
 .bookmarks-table th,
 .bookmarks-table td {
   text-align: left;
-  padding: var(--spacing-12) var(--spacing-16);
-  border-bottom: 1px solid var(--color-soft-mist);
+  padding: 14px var(--spacing-12);
+  border-bottom: 1px solid var(--color-rule);
   vertical-align: top;
 }
 
 .bookmarks-table th {
-  padding-top: 0;
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-ash);
-}
-
-.bookmarks-table th:first-child,
-.bookmarks-table td:first-child {
-  padding-left: 0;
-}
-
-.bookmarks-table th:last-child,
-.bookmarks-table td:last-child {
-  padding-right: 0;
+  padding-block: var(--spacing-8);
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-graphite);
+  white-space: nowrap;
 }
 
 .bookmarks-table th.sortable {
@@ -445,33 +789,57 @@ button:disabled {
   color: var(--color-ink);
 }
 
+.sort-indicator {
+  margin-left: var(--spacing-4);
+  vertical-align: -1px;
+  transition: transform 0.12s ease;
+}
+
+.sort-indicator-asc {
+  transform: rotate(180deg);
+}
+
 .bookmarks-table td {
-  font-size: var(--text-body-sm);
-  color: var(--color-ash);
+  color: var(--color-graphite);
 }
 
 /* The whole row opens the detail modal — see BookmarksTable. */
 .bookmarks-table tbody tr {
   cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.bookmarks-table tbody tr:hover {
+  background: var(--color-sand);
 }
 
 /* The row is the control, so it has to show focus like one. Inset, because an outline drawn
    outside a full-width row is clipped at the viewport edge. */
 .bookmarks-table tbody tr:focus-visible {
-  outline: 2px solid var(--color-ink);
+  outline: 2px solid var(--color-teal);
   outline-offset: -2px;
-}
-
-.bookmarks-table tbody tr:hover {
-  background: #fafafa;
 }
 
 /* Targeted by class, not by position: the description, tags and type columns can each be hidden
    from the Columns menu, so an nth-child rule would land on whichever column happened to shift
    into that slot. */
 .bookmarks-table td.col-description {
-  width: 40%;
+  width: 36%;
   overflow-wrap: break-word;
+}
+
+/* The name is what you scan for; below this, titles break every two words while the tag
+   pills (which can't break) keep their width. */
+.bookmarks-table td:first-child {
+  min-width: 220px;
+}
+
+.line-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 .bookmarks-table td a {
@@ -483,7 +851,7 @@ button:disabled {
 .bookmarks-table td a:hover {
   text-decoration: underline;
   text-underline-offset: 2px;
-  text-decoration-color: var(--color-chalk);
+  text-decoration-color: var(--color-warm-mist);
 }
 
 /* ---------- Badges ---------- */
@@ -496,104 +864,102 @@ button:disabled {
 
 .tag-pill,
 .type-badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: var(--radius-badges);
-  background: var(--color-soft-mist);
-  color: var(--color-ink);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-4);
+  color: var(--color-graphite);
+  font-size: var(--text-body-sm);
+  line-height: var(--leading-body);
   white-space: nowrap;
 }
 
+.tag-pill {
+  padding: 0 6px;
+  border-radius: var(--radius-tags);
+  background: var(--color-sand-deep);
+}
+
+/* Just an icon and a word: a type is a label, not a control. */
 .type-badge {
-  background: transparent;
-  border: 1px solid var(--color-soft-mist);
-  color: var(--color-ash);
-}
-
-.icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  color: var(--color-slate);
-}
-
-.icon-button:hover:not(:disabled) {
-  color: var(--color-ink);
-}
-
-.icon-button svg {
-  display: block;
+  text-transform: capitalize;
 }
 
 /* ---------- Enrichment state (pending → done) ---------- */
 
-/* The name sits next to a fixed-width slot that holds the pending indicator, and will hold the
+/* The name sits next to a fixed-size tile that holds the pending indicator, and will hold the
    favicon once there is one. Reserving it in both states keeps the name from shifting sideways
    when a bookmark resolves. */
 .bookmark-name {
   display: flex;
   align-items: center;
-  gap: var(--spacing-8);
+  gap: 10px;
   min-width: 0;
 }
 
 /* In the table a name often wraps to two or three lines, and an icon centred against that block
-   floats away from the text it identifies. Align it to the first line instead — the cell itself
-   is already `vertical-align: top`. The card list keeps the centred version: its names are
-   shorter and the card has its own padding to sit inside. */
+   floats away from the text it identifies. Align it to the top instead — the cell itself is
+   already `vertical-align: top`. */
 .bookmarks-table .bookmark-name {
   align-items: flex-start;
 }
 
+/* Height matches the name's first line, so the icon sits level with it. */
 .bookmark-name-slot {
   flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
+  width: 16px;
   height: 20px;
+}
+
+.bookmark-name-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
 
 .bookmark-name-text {
   overflow-wrap: anywhere;
 }
 
+.bookmark-name-host {
+  font-size: var(--text-body-sm);
+  color: var(--color-ash);
+  overflow-wrap: anywhere;
+}
+
 .bookmark-favicon {
   width: 16px;
   height: 16px;
-  border-radius: var(--radius-inputs);
+  border-radius: var(--radius-tags);
   object-fit: contain;
 }
 
-/* Last resort when a site has no icon, or its icon fails to load: the host's initial on the
-   same hairline-grey ground the badges use, so a missing favicon still reads as deliberate. */
+/* Last resort when a site has no icon, or its icon fails to load: the host's initial on a tile,
+   so a missing favicon still reads as deliberate. */
 .bookmark-favicon-letter {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 16px;
   height: 16px;
-  border-radius: var(--radius-inputs);
-  background: var(--color-soft-mist);
-  color: var(--color-ash);
+  border-radius: var(--radius-tags);
+  background: var(--color-sand-deep);
+  color: var(--color-graphite);
   font-size: 10px;
   font-weight: var(--font-weight-medium);
   line-height: 1;
   text-transform: uppercase;
 }
 
-/* The modal has room for a larger icon, and its heading is 20px rather than a table cell's 14px. */
+/* The modal has room for a larger icon beside its 20px heading. */
 .bookmark-favicon.bookmark-favicon-lg,
 .bookmark-favicon-letter.bookmark-favicon-lg {
   width: 24px;
   height: 24px;
-  font-size: var(--text-caption);
+  font-size: var(--text-body-sm);
   /* Optically centred on the heading's first line rather than its box. */
   margin-top: 2px;
 }
@@ -607,8 +973,8 @@ button:disabled {
 .enrichment-dot {
   width: 3px;
   height: 3px;
-  border-radius: var(--radius-badges);
-  background: var(--color-fog);
+  border-radius: var(--radius-chips);
+  background: var(--color-graphite);
   /* Duration and delay are set per dot inline, so the grid shimmers rather than blinks. */
   animation-name: enrichment-pulse;
   animation-timing-function: ease-in-out;
@@ -630,9 +996,9 @@ button:disabled {
 .text-shimmer {
   background: linear-gradient(
     90deg,
-    var(--color-fog) 0%,
-    var(--color-ash) 50%,
-    var(--color-fog) 100%
+    var(--color-ash) 0%,
+    var(--color-ink) 50%,
+    var(--color-ash) 100%
   );
   background-size: 200% 100%;
   background-clip: text;
@@ -654,40 +1020,19 @@ button:disabled {
   }
 }
 
-/* Motion is decoration here — the state is still legible as plain grey text and static dots.
-   The scramble itself is gated in JS on the same query. */
-@media (prefers-reduced-motion: reduce) {
-  .enrichment-dot {
-    animation: none;
-    opacity: 0.5;
-  }
-
-  .text-shimmer {
-    background: none;
-    color: var(--color-fog);
-    -webkit-text-fill-color: currentColor;
-    animation: none;
-  }
-}
-
 /* ---------- Card list (narrow viewports) ---------- */
 
+/* Rows divided by hairlines rather than boxed cards — the same treatment as the table. */
 .bookmark-cards {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-12);
 }
 
 .bookmark-card {
   position: relative;
-  border: 1px solid var(--color-soft-mist);
-  border-radius: var(--radius-cards);
-  background: var(--color-pure-paper);
-  box-shadow: var(--shadow-card);
-  padding: var(--spacing-16);
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-rule);
 }
 
 .bookmark-card-content {
@@ -699,8 +1044,6 @@ button:disabled {
   pointer-events: none;
 }
 
-/* The name is wrapped in .bookmark-name (slot + link) now, so the shrink-to-fit that used to
-   sit on the anchor belongs to the wrapper. */
 .bookmark-card-content .bookmark-name {
   align-self: flex-start;
 }
@@ -712,7 +1055,7 @@ button:disabled {
   align-self: flex-start;
   font-size: var(--text-body);
   font-weight: var(--font-weight-medium);
-  line-height: 1.35;
+  line-height: var(--leading-tight);
   color: var(--color-ink);
   text-decoration: none;
   overflow-wrap: anywhere;
@@ -720,8 +1063,7 @@ button:disabled {
 
 .bookmark-card-description {
   margin: 0;
-  font-size: var(--text-body-sm);
-  color: var(--color-ash);
+  color: var(--color-graphite);
   /* Descriptions run to a paragraph; unclamped they give one bookmark per screen. */
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -735,7 +1077,15 @@ button:disabled {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--spacing-4);
-  margin-top: var(--spacing-4);
+}
+
+/* The type badge and the tags wrap as one run of pills, not as two blocks. */
+.bookmark-card-meta .tags {
+  display: contents;
+}
+
+.bookmark-card-meta:empty {
+  display: none;
 }
 
 .bookmark-card-open {
@@ -744,14 +1094,12 @@ button:disabled {
   z-index: 0;
   padding: 0;
   border: none;
-  border-radius: var(--radius-cards);
+  border-radius: 0;
   background: transparent;
-  box-shadow: none;
 }
 
 .bookmark-card-open:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.02);
-  border: none;
+  background: transparent;
 }
 
 /* ---------- Sticky control bar (narrow viewports) ---------- */
@@ -760,14 +1108,35 @@ button:disabled {
   position: sticky;
   top: 0;
   z-index: 10;
-  margin: 0 calc(-1 * var(--spacing-20)) var(--spacing-16);
-  padding: var(--spacing-12) var(--spacing-20);
-  background: var(--color-pure-paper);
-  border-bottom: 1px solid var(--color-soft-mist);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  margin: 0 calc(-1 * var(--spacing-16)) var(--spacing-12);
+  padding: var(--spacing-12) var(--spacing-16);
+  background: var(--color-parchment);
+  border-bottom: 1px solid var(--color-rule);
 }
 
-.controls-sticky .filters {
-  margin-bottom: var(--spacing-8);
+.controls-sticky .search-field {
+  flex: 1 1 auto;
+}
+
+/* Scrolls sideways rather than wrapping, so the bar keeps a fixed height. */
+.type-chips {
+  display: flex;
+  gap: 6px;
+  margin: 0 calc(-1 * var(--spacing-16));
+  padding: 0 var(--spacing-16);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.type-chips .chip:not(.chip-active) {
+  background: var(--color-sand);
+}
+
+.type-chips::-webkit-scrollbar {
+  display: none;
 }
 
 .controls-row {
@@ -779,24 +1148,29 @@ button:disabled {
 .controls-row select {
   flex: 0 1 auto;
   min-width: 0;
+  padding-block: 5px;
+  font-size: var(--text-body-sm);
 }
 
 .pagination-compact {
   margin-left: auto;
   gap: var(--spacing-4);
-  padding-top: 0;
 }
 
 .pagination-compact .pagination-status {
   margin-right: var(--spacing-4);
-  font-size: var(--text-caption);
   white-space: nowrap;
 }
 
 .pagination-compact button {
-  min-width: 36px;
-  padding: 8px 10px;
-  line-height: 1;
+  width: 32px;
+  height: 30px;
+  padding: 0;
+}
+
+.pagination button:not(:hover):not(:disabled),
+.pagination button:disabled {
+  background: transparent;
 }
 
 /* ---------- Detail modal ---------- */
@@ -804,11 +1178,11 @@ button:disabled {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.32);
+  background: rgba(39, 37, 30, 0.28);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: var(--spacing-64) var(--spacing-16);
+  padding: var(--spacing-80) var(--spacing-16);
   z-index: 100;
 }
 
@@ -817,27 +1191,23 @@ button:disabled {
   max-width: 560px;
   max-height: 100%;
   overflow-y: auto;
-  background: var(--color-pure-paper);
-  border: 1px solid var(--color-soft-mist);
-  border-radius: var(--radius-largepanels);
-  box-shadow: var(--shadow-panel);
-  padding: var(--card-padding);
+  background: var(--color-soft-paper);
+  border-radius: var(--radius-cards);
+  box-shadow: var(--shadow-overlay);
+  padding: var(--spacing-24);
 }
 
 .modal-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--spacing-16);
-  padding-bottom: var(--spacing-20);
-  margin-bottom: var(--spacing-20);
-  border-bottom: 1px solid var(--color-soft-mist);
+  gap: var(--spacing-12);
+  margin-bottom: var(--spacing-24);
 }
 
 .modal-header h2 {
   font-size: var(--text-heading-sm);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--leading-heading-sm);
+  line-height: 1.4;
   margin: 0;
   word-break: break-word;
   /* Takes the slack so the close button stays pinned right and the favicon stays beside the
@@ -846,13 +1216,13 @@ button:disabled {
 }
 
 .modal-header .bookmark-favicon,
-.modal-header .bookmark-favicon-letter {
+.modal-header .bookmark-favicon-letter,
+.modal-header .icon-button {
   flex: 0 0 auto;
 }
 
 .modal-header .icon-button {
-  flex: 0 0 auto;
-  font-size: var(--text-body);
+  margin: -2px -6px 0 0;
 }
 
 .modal-body {
@@ -866,15 +1236,14 @@ button:disabled {
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--spacing-8) var(--spacing-16);
-  font-size: var(--text-body-sm);
   color: var(--color-ink);
 }
 
-/* `.detail-label` is excluded deliberately: this selector outweighs `.detail-label` below
-   (0,4,1 vs 0,1,0), so without it the `flex` here would override the label's fixed 104px
+/* Direct children only, and `.detail-label` excluded deliberately: this selector outweighs
+   `.detail-label` below, so without it the `flex` here would override the label's fixed 104px
    column and let labels stretch, pushing every value to the right edge. */
-.detail-row a,
-.detail-row span:not(.tag-pill):not(.status-badge):not(.type-badge):not(.detail-label) {
+.detail-row > a,
+.detail-row > span:not(.status-badge):not(.type-badge):not(.detail-label) {
   /* Query-string URLs have no break opportunities and would otherwise widen the panel. */
   min-width: 0;
   overflow-wrap: anywhere;
@@ -889,92 +1258,123 @@ button:disabled {
   color: var(--color-ink);
   text-decoration: underline;
   text-underline-offset: 2px;
-  text-decoration-color: var(--color-chalk);
+  text-decoration-color: var(--color-warm-mist);
 }
 
 .detail-row a:hover {
   text-decoration-color: var(--color-ink);
 }
 
-.detail-label {
-  flex: 0 0 104px;
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-ash);
+.detail-row button {
+  padding: 3px 10px;
+  font-size: var(--text-body-sm);
 }
 
-/* Status badges are the one tinted surface: a pale wash with a darkened text tone. */
+.detail-label {
+  flex: 0 0 104px;
+  font-size: var(--text-body-sm);
+  color: var(--color-graphite);
+}
+
+/* Status: a coloured dot beside a word. The dot carries the state, so nothing else has to
+   become a second accent colour. */
 .status-badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: var(--radius-badges);
-  background: var(--color-soft-mist);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--color-ink);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
   text-transform: capitalize;
 }
 
-.status-badge.status-done {
-  background: var(--color-mint-whisper);
-  color: var(--color-mint-ink);
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-chips);
+  background: var(--color-ash);
+}
+
+.status-pending .status-dot {
+  animation: enrichment-pulse 1.4s ease-in-out infinite;
+}
+
+.status-done .status-dot {
+  background: var(--color-teal);
 }
 
 .status-badge.status-failed {
-  background: var(--color-rose-whisper);
   color: var(--color-rose-ink);
+}
+
+.status-failed .status-dot {
+  background: var(--color-rose-ink);
 }
 
 .modal-field {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-4);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-ash);
-}
-
-.modal-field input,
-.modal-field select {
+  gap: 6px;
   font-size: var(--text-body-sm);
-  font-weight: var(--font-weight-regular);
-  color: var(--color-ink);
+  color: var(--color-graphite);
 }
 
 .modal-actions {
   display: flex;
   gap: var(--spacing-8);
-  padding-top: var(--spacing-20);
-  margin-top: var(--spacing-4);
-  border-top: 1px solid var(--color-soft-mist);
+  margin-top: var(--spacing-12);
+}
+
+/* Motion is decoration here — the state is still legible as plain grey text and static dots.
+   The scramble itself is gated in JS on the same query. */
+@media (prefers-reduced-motion: reduce) {
+  .app-shell {
+    transition: none;
+  }
+
+  .enrichment-dot,
+  .status-pending .status-dot {
+    animation: none;
+    opacity: 0.5;
+  }
+
+  .text-shimmer {
+    background: none;
+    color: var(--color-ash);
+    -webkit-text-fill-color: currentColor;
+    animation: none;
+  }
 }
 
 /* ---------- Narrow viewports ---------- */
 
 @media (max-width: 640px) {
-  .page {
-    padding: var(--spacing-32) var(--spacing-20) var(--spacing-48);
+  .app-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .main {
+    padding: var(--spacing-16) var(--spacing-16) var(--spacing-48);
+  }
+
+  .topbar {
+    margin: 0 0 var(--spacing-20);
+    padding: 0;
+  }
+
+  .main-header {
+    margin-bottom: var(--spacing-16);
   }
 
   h1 {
-    font-size: var(--text-heading);
-    line-height: var(--leading-heading);
-    margin-bottom: var(--spacing-20);
+    font-size: var(--text-heading-sm);
   }
 
   .add-form {
-    margin-bottom: var(--spacing-20);
+    margin-bottom: var(--spacing-16);
   }
 
-  .filters {
-    margin-bottom: var(--spacing-12);
-  }
-
-  .filters input,
-  .filters .clearable-input {
-    flex: 1 1 auto;
-    min-width: 0;
+  /* The chips say enough on a phone; the hint would wrap to its own line. */
+  .add-form-hint {
+    display: none;
   }
 
   .modal-overlay {

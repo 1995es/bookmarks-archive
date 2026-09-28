@@ -35,38 +35,44 @@ A handful of files under `src/`, and that is intended to stay small:
 | File | Role |
 |---|---|
 | `App.tsx` | Composition root: owns the list, filters, sort, pagination, the enrichment poll, and the selected-bookmark id. |
-| `components/` | `AddBookmarkForm`, `FiltersBar`, `ColumnsControl`, `SortControl`, `BookmarkName`, `BookmarkFavicon`, `BookmarksTable`, `BookmarksList`, `Pagination`, `BookmarkDetailModal`, `ErrorBanner`. |
+| `components/` | `Sidebar`, `TypeChips`, `AddBookmarkForm`, `FiltersBar`, `ColumnsControl`, `SortControl`, `BookmarkName`, `BookmarkFavicon`, `BookmarksTable`, `BookmarksList`, `Pagination`, `BookmarkDetailModal`, `ErrorBanner`, plus `icons.tsx` (inline line icons). |
 | `useMediaQuery.ts` | Subscribes to a CSS media query; drives the table/card layout switch below. |
 | `useColumnVisibility.ts` | Which of the description/tags/type columns are shown, persisted in `localStorage`. |
+| `useSidebarCollapsed.ts` | Whether the sidebar is collapsed to its icon rail, persisted in `localStorage`. |
 | `useScrambleText.ts` | Reveals a string left to right while the tail keeps shuffling — see [The enrichment effect](#the-enrichment-effect). |
 | `api.ts` | `fetch` wrappers, one per endpoint, plus shared error handling. |
 | `types.ts` | Hand-written mirror of the backend's Pydantic schemas. |
-| `utils.ts` | Input parsing (`parseTags`, `parseBulkUrls`), `formatDate`, and the bulk-add worker pool. |
+| `utils.ts` | Input parsing (`parseTags`, `parseBulkUrls`), `formatDate`, `hostOf`, the type labels, and the bulk-add worker pool. |
 | `index.css` | Plain CSS, no framework. Design tokens in `:root` plus every component rule — see [Design system](#design-system). |
 
 ### Design system
 
-The interface follows an "ink on cold-pressed paper" language: a white canvas, near-black ink,
-1px hairline rules in a single light grey, and shadows soft enough to read as paper grain. Type is
-a single family (Inter) at three weights, tracked -0.025em at every size.
+The interface follows a "scholar's parchment" language: a warm off-white canvas, warm ink-dark
+text, hairline warm-grey rules, and one restrained teal. Type is a single family (Inter) at two
+weights, 400 and 500 — hierarchy comes from size, colour and spacing rather than from bold.
 
-The defining choice is the **absence of a brand colour** — hierarchy is carried by type weight and
-four steps of grey:
+The page is a two-pane app: a left sidebar holding the brand and the type filter as navigation,
+and a main column with the add form as its focal "hero" block, then the filters, the list and
+pagination. Structure comes from tone and spacing rather than outlines: controls are soft fills,
+the list sits directly on the canvas divided by hairline rules, and corners are small.
+
+The defining choice is **one colour, used only to say where you are** — the active sidebar item, a
+selected chip, the focus glow:
 
 | Token | Value | Where it is used |
 |---|---|---|
-| `--color-pure-paper` | `#ffffff` | Page and card surfaces alike |
-| `--color-ink` | `#262626` | Headings, links, emphasis — and the one filled button |
-| `--color-ash` | `#686868` | Body copy, table cells |
-| `--color-muted` | `#737373` | Captions, metadata, pagination status |
-| `--color-fog` | `#929292` | Placeholders, disabled labels |
-| `--color-soft-mist` | `#ededed` | Every border, divider, input outline and table rule |
-| `--color-mint-whisper` | `#ecfdf5` | The `done` status badge only |
-| `--color-rose-whisper` | `#fef2f2` | Errors and failed enrichment (an addition — the reference palette has no negative state) |
+| `--color-parchment` | `#faf8f5` | The page canvas |
+| `--color-soft-paper` | `#fdfbfa` | What lifts off the page: a focused field, the popover, the modal |
+| `--color-sand` | `#f3f1ec` | The sidebar, control fills, the add form, hovers |
+| `--color-ink` | `#27251e` | Headings, names, links — and the one filled button |
+| `--color-graphite` | `#72706b` | Body copy, table cells, nav labels |
+| `--color-ash` | `#92918b` | Captions, placeholders, hosts |
+| `--color-rule` | `#e7e4de` | Row dividers — the only lines at rest |
+| `--color-teal` | `#016a71` | Active nav item, selected chips, the `done` dot, focus glow |
+| `--color-rose-ink` | `#a8321f` | Errors, failed enrichment, Delete (an addition — the reference palette has no negative state) |
 
-Cards are white on a white page, distinguished only by a 1px hairline, a 14px radius and a 1px
-shadow. Radii are a closed set (4 / 8 / 14 / 18 / pill), as are the three shadows; values outside
-those sets read as a different system.
+A border appears only as a focus state, and a shadow only on what floats (the columns popover and
+the modal). Radii are a small closed set (4 / 6 / 8 / 12), with pills kept for the toggle chips.
 
 Tokens are defined once in `:root` and consumed by every rule below, so restyling starts there.
 `frontend/CLAUDE.md` carries the working rules for staying inside the system.
@@ -81,7 +87,8 @@ controls thousands of pixels below the fold. `App.tsx` therefore picks a layout 
 |---|---|---|
 | List | `BookmarksTable` | `BookmarksList` (one card per bookmark, description clamped to two lines) |
 | Sort | click the `Name` column header | `SortControl`, a field+direction select |
-| Pagination | `Pagination` below the list | `Pagination compact` inside a sticky control bar above it |
+| Pagination | `Pagination` in the list panel's footer | `Pagination compact` inside a sticky control bar above it |
+| Type filter | `Sidebar` nav items — collapsible to an icon rail, and always a rail between 641px and 1024px | `TypeChips`, a sideways-scrolling row of pills in the sticky bar |
 
 The `ColumnsControl` menu in the filters row hides the description, tags and type columns (and the
 matching card fields). It is a view preference stored in `localStorage`, not a query parameter:

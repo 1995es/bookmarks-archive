@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Bookmark } from "../types";
 import { useMediaQuery } from "../useMediaQuery";
 import { useScrambleText } from "../useScrambleText";
+import { hostOf } from "../utils";
 import BookmarkFavicon from "./BookmarkFavicon";
 
 /** Per-dot animation durations and delays, in seconds. Deliberately coprime-ish values: a
@@ -69,22 +70,28 @@ export default function BookmarkName({ bookmark, linkClassName }: BookmarkNamePr
       <span className="bookmark-name-slot">
         {isPending ? <EnrichmentDots /> : <BookmarkFavicon bookmark={bookmark} />}
       </span>
-      <a
-        className={linkClassName}
-        href={bookmark.url}
-        target="_blank"
-        rel="noreferrer"
-        // The name opens the bookmark; everything around it opens the detail modal. Both
-        // layouts wrap this link in a click target (the table's row handler, the card's
-        // stretched button), so the link has to keep the click to itself.
-        onClick={(e) => e.stopPropagation()}
-        // The scrambled text is transient noise; the title attribute always holds the real one.
-        title={displayText}
-      >
-        <span className={isPending ? "bookmark-name-text text-shimmer" : "bookmark-name-text"}>
-          {text}
-        </span>
-      </a>
+      <span className="bookmark-name-body">
+        <a
+          className={linkClassName}
+          href={bookmark.url}
+          target="_blank"
+          rel="noreferrer"
+          // The name opens the bookmark; everything around it opens the detail modal. Both
+          // layouts wrap this link in a click target (the table's row handler, the card's
+          // stretched button), so the link has to keep the click to itself.
+          onClick={(e) => e.stopPropagation()}
+          // The scrambled text is transient noise; the title attribute always holds the real one.
+          title={displayText}
+        >
+          <span className={isPending ? "bookmark-name-text text-shimmer" : "bookmark-name-text"}>
+            {text}
+          </span>
+        </a>
+        {/* Where the link goes, under the name. Not while pending: the link text is the whole
+            URL then, and its host beneath it would say nothing new. Outside the anchor, so the
+            link's accessible name stays the bookmark's name alone. */}
+        {!isPending && <span className="bookmark-name-host">{hostOf(bookmark.url)}</span>}
+      </span>
     </span>
   );
 }

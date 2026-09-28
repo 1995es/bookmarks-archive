@@ -43,20 +43,28 @@ src/
 │                                     pagination, polling, and the selected-bookmark id
 ├── api.ts                           fetch wrappers. No data-fetching library.
 ├── types.ts                         hand-written mirror of the backend's Pydantic schemas.
-├── utils.ts                         parseTags/parseBulkUrls/formatDate, BOOKMARK_TYPES, PAGE_SIZE
+├── utils.ts                         parseTags/parseBulkUrls/formatDate/hostOf, BOOKMARK_TYPES,
+│                                     TYPE_LABELS, PAGE_SIZE
 ├── index.css                        plain CSS, no framework. The whole design system: tokens
 │                                     in :root, then component rules. See "Design system" below.
 ├── useMediaQuery.ts                 useSyncExternalStore wrapper over window.matchMedia; drives
 │                                     the wide/narrow layout switch
 ├── useColumnVisibility.ts           which of description/tags/type are shown, persisted to
 │                                     localStorage; also owns the column list and its labels
+├── useSidebarCollapsed.ts           whether the reader collapsed the sidebar, persisted to
+│                                     localStorage
 ├── useScrambleText.ts               arrival-board reveal: resolves a string left to right while
 │                                     the tail keeps shuffling. See "The enrichment effect"
 └── components/
+    ├── Sidebar.tsx                  wide-layout left rail: brand + the type filter as nav items
+    │                                (controlled by App), plus the collapse toggle
+    ├── TypeChips.tsx                narrow-layout stand-in for Sidebar: the same type filter as
+    │                                a sideways-scrolling row of pill chips
+    ├── icons.tsx                    inline line icons (currentColor), incl. TypeIcon per type
     ├── AddBookmarkForm.tsx          add form incl. bulk-URL mode; owns its own form state,
     │                                calls createBookmark itself, reports back via onCreated/onError
-    ├── FiltersBar.tsx               tag/type filter controls (controlled by App), plus a
-    │                                trailing `children` slot the columns menu rides in
+    ├── FiltersBar.tsx               tag filter (controlled by App), plus a trailing `children`
+    │                                slot the columns menu rides in
     ├── ColumnsControl.tsx           popover of checkboxes toggling the description/tags/type
     │                                columns; owns only its own open/closed state
     ├── SortControl.tsx              narrow-viewport sort: one select carrying field + direction
@@ -82,50 +90,65 @@ on screen.
 
 ## Design system
 
-`index.css` implements an "ink on cold-pressed paper" system (Audyr-style): white stock, near-black
-ink, hairline rules, and shadows soft enough to read as paper grain rather than elevation. Tokens
-live in `:root` — colours, the Inter type scale, a 4px spacing scale, radii and the three shadows —
-and every rule below consumes them, so a restyle starts there rather than in a component.
+`index.css` implements a "scholar's parchment" system (Perplexity-style): a warm off-white canvas,
+warm ink-dark text, hairline warm-grey rules, and a single restrained teal. Tokens live in `:root` —
+colours, the Inter type scale, a 4px spacing scale, radii and shadows — and every rule below
+consumes them, so a restyle starts there rather than in a component.
 
-Four rules define the look:
+Five rules define the look:
 
-- **No brand accent.** There is no primary colour. Hierarchy comes from type weight and four steps
-  of grey: `--color-ink` for headings, links and emphasis; `--color-ash` for body copy and table
-  cells; `--color-muted` for captions and metadata; `--color-fog` for placeholders. Adding a
-  brand hue is the one change that would break the system outright.
-- **One fill.** `--color-ink` (#262626) is the only filled button background — the Add action's
-  `.button-primary`. Every other button is the ghost outline default. That single dark rectangle
-  is the page's only visual anchor.
-- **Hairlines carry structure.** `--color-soft-mist` (#ededed) at 1px is every border, divider,
-  input outline and table rule. Cards are white-on-white, separated only by that hairline, a 14px
-  radius and `--shadow-card`.
-- **One tracking value.** `--tracking` (-0.025em) is set once on `body` and inherited everywhere,
-  so a 12px label and a 30px heading share the same optical compression. Do not override it per
-  component — that uniformity is what makes the system feel cohesive rather than merely consistent.
+- **One colour, and only for place and focus.** `--color-teal` (#016a71) fills the active sidebar
+  item, a selected chip (`.chip-active`, or a `.chip-toggle` whose checkbox is checked), the
+  `done` status dot and the checkbox accent; `--color-teal-glow`/`--color-teal-halo` are the focus
+  glow on inputs and the hero add form. Never teal text, never a second hue. The one exception is
+  the rose set (`--color-rose-*`), which carries errors, failed enrichment and Delete.
+- **Warm neutrals, not greys.** `--color-parchment` is the canvas; `--color-sand`/`--color-sand-deep`
+  are the sidebar, control fills, hovers and tags; `--color-soft-paper` is what lifts off the page
+  (a focused field, the popover, the modal). Text runs `--color-ink` → `--color-graphite` (body copy, table cells) →
+  `--color-ash` (captions, placeholders). Don't use pure white or pure grey.
+- **One fill.** `.button-primary` (ink) is the only dark button — Add, and Save in the modal.
+  Every other button is a soft sand fill with no outline (toolbar and pagination buttons go
+  transparent until hovered).
+- **Tone, not outlines.** Inputs, buttons and the add form are sand fills with a transparent 1px
+  border; the border only turns teal as a focus state. The list has no card around it — rows sit
+  on the canvas, divided by `--color-rule` hairlines — and on a phone the "cards" are the same
+  hairline-divided rows. Don't reintroduce boxes around groups; spacing does that job.
+- **Weights 400 and 500 only.** No semibold anywhere; hierarchy comes from size, colour and space.
+  Letter-spacing is the font's default.
+- **Shadows only on what floats.** `--shadow-overlay` on the columns popover and the modal; nothing
+  else gets one.
 
-Radii are a closed set: 4px inputs and buttons, 8px images, 14px cards, 18px large panels, pill
-badges. No intermediate values — a 6px or 12px radius reads as a different system.
+Radii are a closed set and kept small: 4px tags and favicons, 6px buttons, 8px inputs and nav
+items, 12px the add form and the modal. Pills are only for the toggle chips (and the status dot).
+The type is a plain icon + word, not a badge.
 
-Shadows are likewise closed: `--shadow-card` on cards, `--shadow-button` (an inset highlight plus a
-1px drop) on the filled button only, and `--shadow-panel` on the modal. Nothing heavier.
+The page is a two-pane shell (`.app-shell`): `Sidebar` on the left, then `.main`, capped at
+`--page-max-width` (1080px — wider than a reading column, because the table needs it). Inside it,
+the add form is the hero — a sand block holding a borderless URL field, the Add button and the mode
+chips — then the filters as a toolbar row, the table, and pagination under it. The table is pulled
+out by one cell's padding on each side so its text lines up with the heading while a hovered row's
+fill still has room.
 
-Two additions to the reference palette were unavoidable. `--color-rose-whisper`/`--color-rose-ink`
-carry destructive and error states (error banner, failed enrichment, bulk-add failures), built as
-the mint badge's mirror image so they stay inside the badge vocabulary. And the 48px display size
-is unused: this is a tool, not a landing page, so `h1` takes `--text-heading-lg` (30px) and drops
-to 24px under 640px.
-
-Inter is loaded from Google Fonts in `index.html` with `cv11`/`ss01` enabled globally via
-`font-feature-settings` on `body`. The stack falls back to the system sans, which matters for a
-self-hosted LAN install with no outbound network.
+Inter is loaded from Google Fonts in `index.html` (400 and 500 only) with `cv11`/`ss01` enabled
+globally via `font-feature-settings` on `body`. The stack falls back to the system sans, which
+matters for a self-hosted LAN install with no outbound network.
 
 ## Two layouts
 
 Under 640px the table's five columns overflow the viewport and the pagination ends up thousands of
 pixels below the fold, so `App.tsx` swaps layouts on `useMediaQuery("(max-width: 640px)")`:
 `BookmarksList` cards instead of `BookmarksTable`, a `SortControl` select instead of the clickable
-`Name` header, and the filters + sort + a `compact` `Pagination` together in a sticky bar above the
-list.
+`Name` header, `TypeChips` and a brand topbar instead of the `Sidebar`, and the filters + type chips
++ sort + a `compact` `Pagination` together in a sticky bar above the list.
+
+The sidebar can also be collapsed to a 64px icon rail (`.app-shell-collapsed` /
+`.sidebar-collapsed`). `App.tsx` decides: collapsed is `isMedium || preference`, where `isMedium`
+is `useMediaQuery("(max-width: 1024px)")` and the preference comes from `useSidebarCollapsed`
+(localStorage key `bookmarks-archive:sidebar-collapsed`). Between 641px and 1024px the rail is
+forced — a full sidebar would squeeze the table — so `Sidebar` gets no `onToggleCollapsed` there
+and renders no toggle, rather than a button that does nothing. In the rail the labels are visually
+hidden rather than `display: none`, so the nav buttons keep their accessible names (each also
+carries a `title`).
 
 Both layouts are never in the DOM at once — the choice is made in JS, not by rendering both and
 hiding one with CSS, so there is exactly one copy of each bookmark for accessibility and test
@@ -165,8 +188,10 @@ wait rather than hiding it:
 
 - **Pending.** The URL itself is shown, not the host placeholder — the placeholder says nothing
   the URL doesn't. It carries `.text-shimmer`, a grey gradient clipped to the glyphs, beside a 3x3
-  grid of pulsing dots. The dots sit in a fixed-width slot that stays reserved once the bookmark
-  resolves, so nothing shifts sideways — the favicon takes their place there.
+  grid of pulsing dots. The dots sit in a fixed-size tile that stays reserved once the bookmark
+  resolves, so nothing shifts sideways — the favicon takes their place there. Once resolved, the
+  host (`hostOf`) is shown under the name, outside the anchor so the link's accessible name stays
+  the name alone.
 - **Done.** The real name arrives and is revealed with `useScrambleText`: one character per ~16ms
   resolves from the left while the rest keep cycling through random characters. Spaces are never
   scrambled, which is what keeps a half-resolved title reading as a title.
